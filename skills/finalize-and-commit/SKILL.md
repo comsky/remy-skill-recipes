@@ -2,8 +2,8 @@
 name: finalize-and-commit
 description: >
   Finalize code changes for production readiness by removing duplicate logic,
-  auditing hardcoded values, verifying build integrity, and structuring
-  clean commits with Conventional Commits format.
+  auditing hardcoded values, verifying branch/worktree intent, verifying build
+  integrity, and structuring clean commits with Conventional Commits format.
 license: MIT
 compatibility:
   - Claude Code
@@ -28,6 +28,7 @@ Tasks:
 - Remove duplicate logic
 - Eliminate unnecessary code
 - Audit and resolve hardcoded values
+- Verify current branch and dirty working tree match the intended task
 - Ensure consistency and build integrity
 - Prepare structured commits
 
@@ -39,6 +40,7 @@ Tasks:
 - Before submitting a pull request for review
 - After completing a refactoring session that touched multiple files
 - When preparing a clean commit history from messy working changes
+- When continuing work after another session may have used the same repository
 
 ---
 
@@ -63,20 +65,53 @@ Optional but recommended:
 
 - [ ] Target branch context (e.g., main, release)
 - [ ] List of intended change scope (files or modules)
+- [ ] Current task intent or expected branch/worktree name
 
 ---
 
 ## Output Format
 
 1. Issues Found
-2. Actions Taken
-3. Verification Results
-4. Commit Plan
-5. Final Commit Messages
+2. Branch Context Verdict
+3. Actions Taken
+4. Verification Results
+5. Commit Plan
+6. Final Commit Messages
 
 ---
 
 ## Procedure
+
+### Gate -1 – Branch Context Check
+
+Run `branch-context-check` before validating the working set.
+
+Required outcome:
+
+- Current task intent is summarized.
+- Current branch, upstream state, recent commits, staged files, and dirty files
+  are inspected.
+- Branch/worktree verdict is one of `match`, `ambiguous`, `mismatch`, or
+  `blocked`.
+
+Proceed to Gate 0 only when:
+
+- Verdict is `match`, or
+- Verdict is `ambiguous` and the user explicitly confirms the branch/worktree
+  is correct for the current task.
+
+Stop before staging or committing when:
+
+- Verdict is `mismatch` or `blocked`.
+- Staged files include changes outside the current task.
+- Dirty files from a previous session overlap with current-session files.
+
+In a stopped state, recommend a concrete recovery path: create/switch to a
+task-appropriate branch, create a separate worktree from the correct base, or
+finish/commit the previous-session work first. Do not move, stash, reset, or
+discard changes without explicit user approval.
+
+---
 
 ### Gate 0 – Working Set Validation
 
@@ -222,6 +257,8 @@ Each commit must explain:
 
 - Do not silence or bypass failing checks.
 - Do not combine unrelated changes in a single commit.
+- Do not commit until branch/worktree intent has passed `branch-context-check`
+  or the user has explicitly accepted an `ambiguous` verdict.
 - Do not over-abstract when extracting helpers (repeated ≥ 3 times threshold).
 - Explicitly state assumptions when classifying hardcoded values.
 - If context is insufficient to determine intent, ask for clarification.
@@ -251,6 +288,9 @@ Common bad outputs:
 - Reverting or discarding uncommitted changes that belong to other sessions or agents
 - Using `git add .` or `git add -A` which accidentally stages out-of-scope changes
 - Treating "ensure no unintended changes" as "revert unrelated files" instead of "exclude from staging"
+- Continuing on a stale branch because the working tree is clean
+- Treating a dirty previous-session branch as safe just because current-session
+  files can be staged individually
 
 ---
 

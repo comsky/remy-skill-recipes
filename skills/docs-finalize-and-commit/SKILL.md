@@ -3,8 +3,9 @@ name: docs-finalize-and-commit
 description: >
   Finalize documentation changes for production readiness by discovering
   existing conventions, verifying code-doc alignment, reviewing
-  format/terminology/tone consistency, and structuring clean commits.
-  Counterpart of finalize-and-commit for documentation projects.
+  format/terminology/tone consistency, verifying branch/worktree intent, and
+  structuring clean commits. Counterpart of finalize-and-commit for
+  documentation projects.
 license: MIT
 compatibility:
   - Claude Code
@@ -33,6 +34,8 @@ Tasks:
 - Verify code-documentation alignment when source code changed
 - Review format, terminology, tone, and completeness consistency
 - Validate framework-specific syntax and build integrity
+- Verify current branch and dirty working tree match the intended documentation
+  task
 - Prepare structured commits separated by change type
 
 ---
@@ -44,6 +47,8 @@ Tasks:
 - After completing a documentation session that touched multiple pages
 - When source code and documentation were both modified in the same session
 - When preparing a clean commit history from messy documentation edits
+- When continuing documentation work after another session may have used the
+  same repository
 
 ---
 
@@ -71,22 +76,56 @@ Optional but recommended:
 - [ ] Target branch context (e.g., main, release)
 - [ ] List of intended change scope (files or directories)
 - [ ] Known glossary or style guide (if any)
+- [ ] Current task intent or expected branch/worktree name
 
 ---
 
 ## Output Format
 
 1. Convention Reference (discovered patterns)
-2. Code-Documentation Alignment Report
-3. Quality Review Findings
-4. Actions Taken (auto-fixes applied)
-5. Build Verification Results
-6. Commit Plan
-7. Final Commit Messages
+2. Branch Context Verdict
+3. Code-Documentation Alignment Report
+4. Quality Review Findings
+5. Actions Taken (auto-fixes applied)
+6. Build Verification Results
+7. Commit Plan
+8. Final Commit Messages
 
 ---
 
 ## Procedure
+
+### Gate -1 – Branch Context Check
+
+Run `branch-context-check` before validating the working set.
+
+Required outcome:
+
+- Current documentation task intent is summarized.
+- Current branch, upstream state, recent commits, staged files, and dirty files
+  are inspected.
+- Branch/worktree verdict is one of `match`, `ambiguous`, `mismatch`, or
+  `blocked`.
+
+Proceed to Gate 0 only when:
+
+- Verdict is `match`, or
+- Verdict is `ambiguous` and the user explicitly confirms the branch/worktree
+  is correct for the current documentation task.
+
+Stop before staging or committing when:
+
+- Verdict is `mismatch` or `blocked`.
+- Staged files include changes outside the current documentation task.
+- Dirty files from a previous session overlap with current-session
+  documentation files.
+
+In a stopped state, recommend a concrete recovery path: create/switch to a
+task-appropriate branch, create a separate worktree from the correct base, or
+finish/commit the previous-session work first. Do not move, stash, reset, or
+discard changes without explicit user approval.
+
+---
 
 ### Gate 0 – Working Set Validation
 
@@ -416,6 +455,8 @@ Use Conventional Commits format. Each message must include:
 - If context is insufficient to determine the correct term or phrasing, ask
   for clarification.
 - Respect existing project conventions for commit messages and structure.
+- Do not commit until branch/worktree intent has passed `branch-context-check`
+  or the user has explicitly accepted an `ambiguous` verdict.
 - **NEVER** use `git checkout -- <file>`, `git restore`, `git stash`,
   `git reset --hard`, or any other command that discards or reverts uncommitted
   changes to files outside the current session's scope.
@@ -448,6 +489,10 @@ Common bad outputs:
 - Using `git add .` which accidentally stages out-of-scope changes
 - Treating "ensure no unintended changes" as "revert unrelated files" instead
   of "exclude from staging"
+- Continuing on a stale branch because documentation changes themselves look
+  clean
+- Treating a dirty previous-session branch as safe just because only doc files
+  will be staged
 - Reporting Convention Reference without getting user confirmation, then
   applying incorrect standards
 

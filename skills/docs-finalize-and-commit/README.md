@@ -1,9 +1,9 @@
 # Finalize Documentation and Commit
 
 Finalize documentation changes for production readiness by discovering
-existing conventions, verifying code-doc alignment, and structuring
-clean commits. Works with any documentation framework (Docusaurus,
-VitePress, MkDocs, Nextra, plain Markdown, etc.).
+existing conventions, verifying code-doc alignment, verifying branch/worktree
+intent, and structuring clean commits. Works with any documentation framework
+(Docusaurus, VitePress, MkDocs, Nextra, plain Markdown, etc.).
 
 This skill:
 
@@ -11,6 +11,7 @@ This skill:
 - Verifies code-documentation alignment when source code also changed
 - Reviews format, terminology, tone, and completeness consistency
 - Validates framework-specific syntax and build integrity
+- Verifies branch/worktree intent before staging or committing
 - Structures commits by change type: `docs(fix)`, `docs(style)`, `docs(content)`, `docs(sync)`
 
 ---
@@ -21,12 +22,14 @@ Documentation quality degrades when convention discovery is skipped.
 Inconsistent terminology, broken links, and misaligned code references
 erode user trust. This skill ensures every documentation commit meets
 the project's established standards — inferred from the existing corpus,
-not imposed from outside.
+not imposed from outside — while avoiding stale branch or previous-session
+worktree mixups.
 
 ---
 
-## Procedure (7 Gates)
+## Procedure (8 Gates)
 
+- **Gate -1: Branch Context Check** — verify current branch/worktree matches the task
 0. **Working Set Validation** — isolate session changes, protect out-of-scope files
 1. **Convention Discovery** — sample 10–15 existing docs to infer style, tone, terminology
 2. **Code-Documentation Alignment** — map source code changes to documentation references
