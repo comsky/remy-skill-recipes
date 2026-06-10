@@ -3,7 +3,8 @@ name: finalize-and-commit
 description: >
   Finalize code changes for production readiness by removing duplicate logic,
   auditing hardcoded values, verifying branch/worktree intent, verifying build
-  integrity, and structuring clean commits with Conventional Commits format.
+  integrity, structuring clean commits with Conventional Commits format, and
+  forcing a post-publish branch/worktree cleanup decision.
 license: MIT
 compatibility:
   - Claude Code
@@ -31,6 +32,7 @@ Tasks:
 - Verify current branch and dirty working tree match the intended task
 - Ensure consistency and build integrity
 - Prepare structured commits
+- Force an explicit cleanup decision after push, PR creation, or PR merge
 
 ---
 
@@ -77,6 +79,7 @@ Optional but recommended:
 4. Verification Results
 5. Commit Plan
 6. Final Commit Messages
+7. Post-Publish Cleanup Decision
 
 ---
 
@@ -253,12 +256,37 @@ Each commit must explain:
 
 ---
 
+### Gate 6 – Post-Publish Cleanup Handoff
+
+After any commit, push, PR creation, or PR merge performed as part of this
+workflow, run Gate 6 of `branch-context-check`.
+
+Required behavior:
+
+- If only local commits were created, state whether push/PR is pending and what
+  branch remains checked out.
+- If a branch was pushed and the PR is still open, offer to keep the branch,
+  switch back to base, or leave cleanup for after merge.
+- If a PR was merged, offer or perform approved cleanup: switch to base,
+  fast-forward pull, delete the local task branch, delete the remote task
+  branch, prune remote refs, and prune stale worktree metadata.
+- If a separate worktree was used, offer or perform approved worktree removal
+  only after confirming that worktree is clean.
+
+Do not end the workflow after push or merge without reporting the cleanup
+decision. Deletion still requires the safety checks from `branch-context-check`
+Gate 6.
+
+---
+
 ## Guardrails
 
 - Do not silence or bypass failing checks.
 - Do not combine unrelated changes in a single commit.
 - Do not commit until branch/worktree intent has passed `branch-context-check`
   or the user has explicitly accepted an `ambiguous` verdict.
+- Do not end after commit/push/merge without running the post-publish cleanup
+  handoff.
 - Do not over-abstract when extracting helpers (repeated ≥ 3 times threshold).
 - Explicitly state assumptions when classifying hardcoded values.
 - If context is insufficient to determine intent, ask for clarification.
@@ -291,6 +319,10 @@ Common bad outputs:
 - Continuing on a stale branch because the working tree is clean
 - Treating a dirty previous-session branch as safe just because current-session
   files can be staged individually
+- Pushing or merging successfully, then leaving stale local/remote branches or
+  worktrees without offering cleanup choices
+- Deleting branches or worktrees after merge without verifying clean state and
+  merged/obsolete status
 
 ---
 
@@ -303,10 +335,14 @@ Common bad outputs:
 **Output:**
 
 1. Issues Found: unused import in `utils/parse.ts`, debug log in `api/handler.ts`
-2. Actions Taken: removed unused import, removed debug log
-3. Verification Results: lint pass, tests pass, build pass
-4. Commit Plan: single refactor commit (scope is small)
-5. Final Commit Messages: `refactor(utils): clean up unused import and debug log`
+2. Branch Context Verdict: `match` — current branch and dirty files align with
+   the cleanup task
+3. Actions Taken: removed unused import, removed debug log
+4. Verification Results: lint pass, tests pass, build pass
+5. Commit Plan: single refactor commit (scope is small)
+6. Final Commit Messages: `refactor(utils): clean up unused import and debug log`
+7. Post-Publish Cleanup Decision: not applicable yet — local commit only; push
+   or PR cleanup will be decided after publish
 
 ---
 
@@ -319,13 +355,18 @@ Common bad outputs:
 **Output:**
 
 1. Issues Found: hardcoded retry timeout (3000ms) in `services/retry.ts`, duplicated input validation in 4 route handlers, unused helper `formatLegacy` in `utils/format.ts`
-2. Actions Taken: extracted retry timeout to config (`RETRY_TIMEOUT_MS`), created shared `validateInput()` helper, removed `formatLegacy`
-3. Verification Results: all tests pass, lint pass, typecheck pass, build pass
-4. Commit Plan: 3 commits — (a) refactor: extract shared validation, (b) refactor: move retry timeout to config, (c) feat: add new API endpoint
-5. Final Commit Messages:
+2. Branch Context Verdict: `match` — branch name, recent commits, and in-scope
+   files align with the API work
+3. Actions Taken: extracted retry timeout to config (`RETRY_TIMEOUT_MS`), created shared `validateInput()` helper, removed `formatLegacy`
+4. Verification Results: all tests pass, lint pass, typecheck pass, build pass
+5. Commit Plan: 3 commits — (a) refactor: extract shared validation, (b) refactor: move retry timeout to config, (c) feat: add new API endpoint
+6. Final Commit Messages:
    - `refactor(validation): extract shared validateInput helper from route handlers`
    - `refactor(retry): move hardcoded timeout to config as RETRY_TIMEOUT_MS`
    - `feat(api): add POST /items endpoint with input validation`
+7. Post-Publish Cleanup Decision: after PR merge, offer switch-to-base,
+   local/remote branch deletion, remote prune, and worktree prune; do not delete
+   while the PR is still open
 
 ---
 

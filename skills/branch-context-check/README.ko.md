@@ -2,7 +2,8 @@
 
 스테이징, 커밋, 푸시, 또는 다른 세션의 작업을 이어가기 전에
 현재 Git 브랜치, 업스트림 상태, dirty working tree가 현재 작업 목적과
-맞는지 검증합니다.
+맞는지 검증합니다. 푸시, PR 생성, PR 머지 이후에는 브랜치/워크트리
+정리 여부를 반드시 결정하게 합니다.
 
 이 스킬은:
 
@@ -11,6 +12,7 @@
 - 현재 세션 변경과 이전 세션/소유 불명 변경을 분리
 - 새 브랜치 또는 워크트리가 필요한 상황을 권고
 - 애매하거나 위험한 파일 소유권이 확인되기 전까지 커밋 흐름을 중단
+- publish 흐름 이후 keep/delete/switch/remove 정리 선택을 요구
 
 ---
 
@@ -19,11 +21,12 @@
 에이전트는 현재 checkout된 브랜치에서 그대로 작업을 이어가기 쉽습니다.
 그 브랜치와 dirty 파일이 현재 작업과 맞을 때만 안전합니다. 이 스킬은
 커밋 경계에서 가벼운 Git 컨텍스트 게이트를 추가해, 서로 다른 세션의
-작업이 새 작업에 섞이는 사고를 줄입니다.
+작업이 새 작업에 섞이는 사고를 줄입니다. 또한 푸시나 머지 후 오래된
+작업 브랜치와 워크트리가 계속 쌓이는 문제를 줄입니다.
 
 ---
 
-## 절차 (6-Gate)
+## 절차 (7-Gate)
 
 0. **Task Intent Capture** — Git 확인 전에 현재 작업 목적 요약
 1. **Git Context Snapshot** — 브랜치, 업스트림, dirty 파일, 최근 커밋 확인
@@ -31,10 +34,10 @@
 3. **Dirty Worktree Ownership** — 현재 세션, 이전 세션, staged, 소유 불명 파일 분류
 4. **Decision Matrix** — `match`, `ambiguous`, `mismatch`, `blocked` 판정
 5. **Handoff** — 위험 상태에서는 스테이징/커밋 전 사용자 확인 요구
+6. **Post-Publish Cleanup Decision** — 푸시/PR/머지 후 keep, switch, delete, remove, prune 중 선택
 
 ---
 
 ## 구조
 
 - [SKILL.md](SKILL.md) — 메인 스킬
-
