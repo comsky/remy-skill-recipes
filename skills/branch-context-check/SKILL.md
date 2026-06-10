@@ -5,7 +5,8 @@ description: >
   match the user's intended task before staging, committing, pushing, or
   continuing work from another session. Use this to detect stale branch reuse,
   leftover dirty files from previous sessions, unrelated commits on the current
-  branch, and cases where work should be split into a new branch or worktree.
+  branch, cases where work should be split into a new branch or worktree, and
+  post-publish cleanup decisions after push, PR creation, or PR merge.
 license: MIT
 compatibility:
   - Claude Code
@@ -34,6 +35,8 @@ This skill verifies:
   forward
 - The safest next step is clear before staging, committing, pushing, or
   continuing work
+- Post-publish branch/worktree cleanup is explicitly chosen after push, PR
+  creation, or PR merge
 
 ---
 
@@ -46,6 +49,8 @@ This skill verifies:
   session
 - When the working tree is dirty and file ownership is unclear
 - When deciding whether to create a new branch or separate worktree
+- After pushing a branch, opening a PR, or merging a PR when deciding whether
+  to switch back to base, delete local/remote branches, or remove worktrees
 
 ---
 
@@ -73,6 +78,7 @@ Optional but recommended:
 - [ ] Intended branch name, ticket ID, PR title, or issue reference
 - [ ] List of files modified by the current session
 - [ ] Known previous-session work that should remain untouched
+- [ ] PR URL/number and merge state when deciding post-publish cleanup
 
 ---
 
@@ -83,6 +89,7 @@ Optional but recommended:
 3. Dirty Worktree Ownership
 4. Recommended Action
 5. User Confirmation Required
+6. Post-Publish Cleanup Decision, if applicable
 
 ---
 
@@ -211,6 +218,76 @@ must complete before their Working Set Validation gate proceeds.
 
 ---
 
+### Gate 6 – Post-Publish Cleanup Decision
+
+Run this gate after any commit/push/PR operation before ending the workflow.
+The agent must either perform an approved cleanup or explicitly state why no
+cleanup was performed.
+
+**Step 6-1: Capture publish state**
+
+Inspect:
+
+- `git status --short --branch`
+- `git branch --show-current`
+- `git worktree list`
+- `git branch --format='%(refname:short) %(upstream:short)'`
+- Remote branch existence for the current task branch
+- PR state (`OPEN`, `MERGED`, `CLOSED`) and merge commit when a PR exists
+
+Use `gh pr view` or equivalent repository tooling when available. If GitHub
+metadata is unavailable, do not infer that a branch is merged from Git alone
+when squash merge may have been used.
+
+**Step 6-2: Present cleanup choices**
+
+Offer the applicable choices instead of silently ending:
+
+- **Keep branch/worktree:** keep the current branch for follow-up commits or an
+  open PR.
+- **Return to base:** switch to the base branch and fast-forward pull.
+- **Delete local branch:** delete the task branch after it is no longer needed.
+- **Delete remote branch:** delete the remote task branch after the PR is
+  merged or closed intentionally.
+- **Remove worktree:** remove a separate task worktree after confirming it is
+  clean and no longer needed.
+- **Prune metadata:** run remote/worktree prune after branch or worktree
+  cleanup.
+
+If the user explicitly requested cleanup, execute every eligible cleanup step
+after the safety checks below pass. If the user did not request cleanup, stop
+and ask which option to apply.
+
+**Step 6-3: Safety checks before deletion**
+
+Deletion is eligible only when all relevant checks pass:
+
+- Working tree is clean in the branch/worktree being cleaned.
+- The PR for the task branch is `MERGED`, or the user explicitly confirms that
+  the branch is obsolete.
+- No open PR depends on the branch.
+- No stacked branch or follow-up branch uses the branch as its base, unless the
+  user confirms that dependency is gone.
+- The branch is not the current checkout when deleting it locally.
+- A worktree is not removed unless `git status` inside that worktree is clean.
+- Remote deletion targets only the task branch, never a base/protected branch.
+
+Prefer `git branch -d`. If squash merge makes `git branch -d` reject a branch
+whose PR is confirmed `MERGED`, use `git branch -D` only after stating that
+reason and only for the task branch.
+
+**Step 6-4: Verification after cleanup**
+
+After cleanup, verify and report:
+
+- Current branch
+- `git status --short --branch`
+- Remaining local branches relevant to the task
+- Remaining remote branches relevant to the task
+- `git worktree list`
+
+---
+
 ## Guardrails
 
 - Do not treat the current branch as valid just because it is already checked
@@ -224,6 +301,14 @@ must complete before their Working Set Validation gate proceeds.
 - Do not move dirty changes across branches or worktrees automatically.
 - Do not mix unrelated tasks in one commit just because they are already dirty.
 - Explicitly state assumptions about base branch and branch naming.
+- Do not end a commit/push/PR workflow without a cleanup decision or a clear
+  statement that cleanup is not applicable yet.
+- Do not delete local branches, remote branches, or worktrees unless the safety
+  checks in Gate 6 pass.
+- Do not delete a branch just because it was pushed; open PR branches normally
+  stay until merge or an explicit user decision.
+- Do not remove the current worktree. Switch away first or remove only a
+  separate clean worktree path.
 
 ---
 
@@ -243,6 +328,10 @@ Common bad outputs:
 - Staging all files after warning that some files are out of scope
 - Asking for generic confirmation without listing the exact branch, commits, and
   files that caused the risk
+- Ending after push or merge while leaving stale branches/worktrees without
+  mentioning cleanup choices
+- Deleting a branch for an open PR or an unverified squash merge
+- Removing a worktree without checking that worktree's own status
 
 ---
 
@@ -297,4 +386,3 @@ the branch mention auth session refactoring.
 
 This skill is intentionally conservative. Its goal is not to automate branch
 management; it is to prevent accidental task mixing at the commit boundary.
-

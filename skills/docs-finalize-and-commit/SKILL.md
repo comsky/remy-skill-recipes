@@ -4,8 +4,8 @@ description: >
   Finalize documentation changes for production readiness by discovering
   existing conventions, verifying code-doc alignment, reviewing
   format/terminology/tone consistency, verifying branch/worktree intent, and
-  structuring clean commits. Counterpart of finalize-and-commit for
-  documentation projects.
+  structuring clean commits with a post-publish branch/worktree cleanup
+  decision. Counterpart of finalize-and-commit for documentation projects.
 license: MIT
 compatibility:
   - Claude Code
@@ -37,6 +37,7 @@ Tasks:
 - Verify current branch and dirty working tree match the intended documentation
   task
 - Prepare structured commits separated by change type
+- Force an explicit cleanup decision after push, PR creation, or PR merge
 
 ---
 
@@ -90,6 +91,7 @@ Optional but recommended:
 6. Build Verification Results
 7. Commit Plan
 8. Final Commit Messages
+9. Post-Publish Cleanup Decision
 
 ---
 
@@ -444,6 +446,29 @@ Use Conventional Commits format. Each message must include:
 
 ---
 
+### Gate 7 – Post-Publish Cleanup Handoff
+
+After any commit, push, PR creation, or PR merge performed as part of this
+workflow, run Gate 6 of `branch-context-check`.
+
+Required behavior:
+
+- If only local commits were created, state whether push/PR is pending and what
+  branch remains checked out.
+- If a branch was pushed and the PR is still open, offer to keep the branch,
+  switch back to base, or leave cleanup for after merge.
+- If a PR was merged, offer or perform approved cleanup: switch to base,
+  fast-forward pull, delete the local task branch, delete the remote task
+  branch, prune remote refs, and prune stale worktree metadata.
+- If a separate worktree was used, offer or perform approved worktree removal
+  only after confirming that worktree is clean.
+
+Do not end the workflow after push or merge without reporting the cleanup
+decision. Deletion still requires the safety checks from `branch-context-check`
+Gate 6.
+
+---
+
 ## Guardrails
 
 - Do not invent or fabricate documentation content not supported by the source
@@ -457,6 +482,8 @@ Use Conventional Commits format. Each message must include:
 - Respect existing project conventions for commit messages and structure.
 - Do not commit until branch/worktree intent has passed `branch-context-check`
   or the user has explicitly accepted an `ambiguous` verdict.
+- Do not end after commit/push/merge without running the post-publish cleanup
+  handoff.
 - **NEVER** use `git checkout -- <file>`, `git restore`, `git stash`,
   `git reset --hard`, or any other command that discards or reverts uncommitted
   changes to files outside the current session's scope.
@@ -493,6 +520,10 @@ Common bad outputs:
   clean
 - Treating a dirty previous-session branch as safe just because only doc files
   will be staged
+- Pushing or merging successfully, then leaving stale local/remote branches or
+  worktrees without offering cleanup choices
+- Deleting branches or worktrees after merge without verifying clean state and
+  merged/obsolete status
 - Reporting Convention Reference without getting user confirmation, then
   applying incorrect standards
 
@@ -510,18 +541,22 @@ existing "Configuration" page had a section rewritten. No source code changes.
 1. Convention Reference: frontmatter requires `title`, `sidebar_position`,
    `description`; headings use `##` for top-level sections; tone is 합쇼체
    (`~합니다`); admonitions use `:::note` and `:::tip`
-2. Code-Documentation Alignment Report: skipped (no source code changes)
-3. Quality Review Findings:
+2. Branch Context Verdict: `match` — current branch and doc-scope files align
+   with the documentation task
+3. Code-Documentation Alignment Report: skipped (no source code changes)
+4. Quality Review Findings:
    - Error: new page missing `sidebar_position` in frontmatter
    - Warning: "Configuration" page mixes "설정값" and "설정 값" (spacing)
    - Info: "Getting Started" section order differs from convention
-4. Actions Taken: added `sidebar_position: 1` to frontmatter, standardized
+5. Actions Taken: added `sidebar_position: 1` to frontmatter, standardized
    "설정값" (no space, matching 80% of existing usage)
-5. Build Verification: `npm run build` exit 0, no warnings
-6. Commit Plan: 2 commits — (a) style fix, (b) new content
-7. Final Commit Messages:
+6. Build Verification: `npm run build` exit 0, no warnings
+7. Commit Plan: 2 commits — (a) style fix, (b) new content
+8. Final Commit Messages:
    - `docs(style): standardize terminology and frontmatter in configuration page`
    - `docs(content): add getting started guide`
+9. Post-Publish Cleanup Decision: not applicable yet — local commit only; push
+   or PR cleanup will be decided after publish
 
 ---
 
@@ -539,30 +574,35 @@ endpoint and a new configuration option. Sidebar configuration was not updated.
    `sidebar_label`, `description`, `tags`; 합쇼체 tone; features referenced
    with English name first then Korean in parentheses (e.g., "Dashboard
    (대시보드)"); `:::warning` for breaking changes, `:::tip` for best practices
-2. Code-Documentation Alignment Report:
+2. Branch Context Verdict: `match` — branch name and dirty files align with
+   docs/API synchronization
+3. Code-Documentation Alignment Report:
    - Already updated: API reference page for renamed endpoint
    - Needs update: troubleshooting page still references old endpoint name;
      configuration guide missing new `MAX_RETRY_COUNT` option
    - No documentation: new internal helper function (no user-facing docs needed)
-3. Quality Review Findings:
+4. Quality Review Findings:
    - Error: 2 broken internal links (target files were reorganized last sprint)
    - Error: 1 image reference to deleted screenshot (`old-dashboard.png`)
    - Warning: API reference uses "대시보드" without English name (convention
      violation)
    - Warning: new guide page uses 해요체 ("~해요") while convention is 합쇼체
    - Info: 3 pages missing `tags` frontmatter field
-4. Actions Taken: fixed 2 broken links, updated old endpoint references,
+5. Actions Taken: fixed 2 broken links, updated old endpoint references,
    added `MAX_RETRY_COUNT` documentation, standardized bilingual term format,
    corrected speech level to 합쇼체, added missing `tags` fields, registered
    new pages in `sidebars.js`, flagged missing screenshot for user replacement
-5. Build Verification: `npm run build` exit 0, 1 warning (pre-existing, out
+6. Build Verification: `npm run build` exit 0, 1 warning (pre-existing, out
    of scope)
-6. Commit Plan: 4 commits
-7. Final Commit Messages:
+7. Commit Plan: 4 commits
+8. Final Commit Messages:
    - `docs(fix): repair broken links and remove stale image reference`
    - `docs(style): standardize terminology format and speech level across guides`
    - `docs(content): add MAX_RETRY_COUNT configuration documentation`
    - `docs(sync): update API reference and troubleshooting for endpoint rename`
+9. Post-Publish Cleanup Decision: after PR merge, offer switch-to-base,
+   local/remote branch deletion, remote prune, and worktree prune; do not delete
+   while the PR is still open
 
 ---
 
