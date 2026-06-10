@@ -20,6 +20,7 @@ compatible with Cursor, Claude Code, VS Code + Copilot, Codex, Gemini CLI, and o
 | [architecture-spec](skills/architecture-spec/) | Execution | Risk-based architecture doc generation with auto-leveling (A/B/C) |
 | [branch-context-check](skills/branch-context-check/) | Execution | Verify branch/worktree intent before staging, committing, or pushing |
 | [change-reaudit](skills/change-reaudit/) | Execution | Re-audit code changes for side effects, regressions, and edge cases |
+| [cjk-text-wrap-audit](skills/cjk-text-wrap-audit/) | Execution | Diagnose CJK text-wrapping bugs with evidence-first cascade and verification checks |
 | [competitive-feature-benchmark](skills/competitive-feature-benchmark/) | Execution | Compare competing products at the UX and interaction level |
 | [docs-finalize-and-commit](skills/docs-finalize-and-commit/) | Execution | Finalize documentation with convention discovery and consistency checks |
 | [finalize-and-commit](skills/finalize-and-commit/) | Execution | Finalize code for production — dedup, hardcode audit, clean commits |

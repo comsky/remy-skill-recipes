@@ -18,6 +18,7 @@ Cursor, Claude Code, VS Code + Copilot, Codex, Gemini CLI 등 SKILL.md 호환 �
 | [architecture-spec](skills/architecture-spec/) | Execution | 리스크 기반 아키텍처 문서 자동 생성 (A/B/C 레벨) |
 | [branch-context-check](skills/branch-context-check/) | Execution | 스테이징/커밋/푸시 전 브랜치와 워크트리 목적 일치 여부 점검 |
 | [change-reaudit](skills/change-reaudit/) | Execution | 코드 변경 재감사 — 사이드 이펙트, 회귀, 엣지 케이스 |
+| [cjk-text-wrap-audit](skills/cjk-text-wrap-audit/) | Execution | CJK 텍스트 줄바꿈 버그를 증거 우선 캐스케이드/검증 절차로 진단 |
 | [competitive-feature-benchmark](skills/competitive-feature-benchmark/) | Execution | 경쟁 제품 UX/인터랙션 수준 비교 분석 |
 | [docs-finalize-and-commit](skills/docs-finalize-and-commit/) | Execution | 문서 컨벤션 탐색 및 일관성 검증 후 커밋 |
 | [finalize-and-commit](skills/finalize-and-commit/) | Execution | 코드 최종 정리 — 중복 제거, 하드코딩 감사, 클린 커밋 |
