@@ -22,6 +22,7 @@ Cursor, Claude Code, VS Code + Copilot, Codex, Gemini CLI 등 SKILL.md 호환 �
 | [competitive-feature-benchmark](skills/competitive-feature-benchmark/) | Execution | 경쟁 제품 UX/인터랙션 수준 비교 분석 |
 | [docs-finalize-and-commit](skills/docs-finalize-and-commit/) | Execution | 문서 컨벤션 탐색 및 일관성 검증 후 커밋 |
 | [finalize-and-commit](skills/finalize-and-commit/) | Execution | 코드 최종 정리 — 중복 제거, 하드코딩 감사, 클린 커밋 |
+| [gh-ship-pr](skills/gh-ship-pr/) | Execution | 커밋된 브랜치를 push하고 PR 정식 등록, CI 대기, 리뷰 코멘트 처리, 머지까지 수행 |
 | [notion-format](skills/notion-format/) | Execution | 콘텐츠 타입 자동 감지 및 Notion 문서 리치 포맷팅 |
 | [oss-code-analysis](skills/oss-code-analysis/) | Execution | OSS 레포 코드 수준 분석 (비교/심층 모드) |
 | [ux-sentinel](skills/ux-sentinel/) | System | 반복 UX 개념 자동 감지 및 Notion DB 등록 |
