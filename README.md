@@ -24,6 +24,7 @@ compatible with Cursor, Claude Code, VS Code + Copilot, Codex, Gemini CLI, and o
 | [competitive-feature-benchmark](skills/competitive-feature-benchmark/) | Execution | Compare competing products at the UX and interaction level |
 | [docs-finalize-and-commit](skills/docs-finalize-and-commit/) | Execution | Finalize documentation with convention discovery and consistency checks |
 | [finalize-and-commit](skills/finalize-and-commit/) | Execution | Finalize code for production — dedup, hardcode audit, clean commits |
+| [frontend-decision-sync](skills/frontend-decision-sync/) | Execution | Persist reusable frontend decisions into project documentation |
 | [gh-ship-pr](skills/gh-ship-pr/) | Execution | Push a committed branch, register a ready PR, optionally wait for CI, address review comments, and merge |
 | [notion-format](skills/notion-format/) | Execution | Auto-detect content type and format rich Notion documents |
 | [oss-code-analysis](skills/oss-code-analysis/) | Execution | Analyze OSS repos at the code level (compare or deep-dive mode) |
