@@ -4,10 +4,8 @@ description: >
   A clear description of the continuous behavior this skill provides
   and when it should activate.
 license: MIT
-compatibility:
-  - Claude Code
-  - Cursor
 metadata:
+  compatibility: Claude Code, Cursor
   type: system
   category: automation
   maturity: draft
@@ -17,6 +15,8 @@ metadata:
 ---
 
 # System Skill Title
+
+**Type:** System
 
 ## Purpose
 

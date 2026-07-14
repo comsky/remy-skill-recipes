@@ -77,17 +77,15 @@ description: >
   코드 변경사항을 재감사하여 사이드 이펙트, 회귀 위험,
   미처리 엣지 케이스를 식별합니다.
 license: MIT
-compatibility:
-  - Claude Code
-  - Cursor
 metadata:
+  compatibility: Claude Code, Cursor
   type: execution
   category: review
 ---
 ```
 
 에이전트는 탐색 단계에서 `name`과 `description`만 읽습니다 (~100 토큰).
-전체 마크다운 본문은 활성화 시 로딩됩니다 (<5000 토큰).
+전체 마크다운 본문은 활성화 시에만 로딩됩니다.
 
 ---
 

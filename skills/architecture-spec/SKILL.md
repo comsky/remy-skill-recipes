@@ -4,11 +4,12 @@ description: >
   Generate architecture and design documents for implemented code changes
   with risk-based depth selection. Automatically evaluates risk signals,
   layer spread, and change magnitude to choose documentation level (A/B/C).
+  Use after completing a feature, before merging a PR that touches multiple
+  layers or sensitive areas (auth, infra, migrations, payments), or when an
+  implemented change needs a design record or ADR.
 license: MIT
-compatibility:
-  - Claude Code
-  - Cursor
 metadata:
+  compatibility: Claude Code, Cursor
   type: execution
   category: documentation
   maturity: draft

@@ -3,12 +3,12 @@ name: ux-sentinel
 description: >
   Continuously detect recurring UI/UX concepts during frontend discussions,
   track conversation-wide recurrence, and register repeated concepts as
-  structured knowledge assets in a Notion database via MCP.
+  structured knowledge assets in a Notion database via MCP. Activates when
+  UI/UX principles, heuristics, laws, or design patterns recur during
+  frontend work, or on manual @ux commands (@ux save, @ux skip, @ux link).
 license: MIT
-compatibility:
-  - Claude Code
-  - Cursor
 metadata:
+  compatibility: Claude Code, Cursor
   type: system
   category: automation
   maturity: draft

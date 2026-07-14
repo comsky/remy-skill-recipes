@@ -8,10 +8,8 @@ description: >
   branch, cases where work should be split into a new branch or worktree, and
   post-publish cleanup decisions after push, PR creation, or PR merge.
 license: MIT
-compatibility:
-  - Claude Code
-  - Cursor
 metadata:
+  compatibility: Claude Code, Cursor
   type: execution
   category: cleanup
   maturity: draft
@@ -196,7 +194,7 @@ Use this matrix to recommend the next action:
 | Branch is ahead of upstream with unrelated commits | mismatch | Do not add new task commits; create a separate branch from the correct base or ask user to confirm stacking |
 
 When recommending a new branch, propose a concrete name derived from the task,
-for example `codex/fix-login-timeout` or `codex/docs-branch-guard`.
+for example `fix/login-timeout` or `docs/branch-guard`.
 
 When recommending a worktree, include the base branch assumption and state that
 only user-confirmed changes should be moved or recreated there.
@@ -351,7 +349,7 @@ callback handling.
    branch intent is OAuth login.
 3. Dirty Worktree Ownership: no dirty files.
 4. Recommended Action: create a new branch from the correct base, for example
-   `codex/test-billing-export`, before making or committing billing changes.
+   `test/billing-export`, before making or committing billing changes.
 5. User Confirmation Required: yes — confirm base branch (`main` assumed) and
    new branch/worktree preference.
 
@@ -361,14 +359,14 @@ callback handling.
 
 **Input:**
 
-Current task: update dashboard copy. Current branch is `codex/aaa-refactor`.
+Current task: update dashboard copy. Current branch is `agent/aaa-refactor`.
 Working tree has modified `src/auth/session.ts` and `src/dashboard/Home.tsx`.
 Conversation history only touched `src/dashboard/Home.tsx`. Recent commits on
 the branch mention auth session refactoring.
 
 **Output:**
 
-1. Branch Context Snapshot: branch `codex/aaa-refactor`, dirty files in auth and
+1. Branch Context Snapshot: branch `agent/aaa-refactor`, dirty files in auth and
    dashboard, recent commits are auth-related.
 2. Intent Match Verdict: `blocked` — branch and one dirty file appear to belong
    to a previous auth refactor session.

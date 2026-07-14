@@ -3,17 +3,17 @@ name: my-skill-name
 description: >
   A clear description of what this skill does and when to activate it.
 license: MIT
-compatibility:
-  - Claude Code
-  - Cursor
 metadata:
+  compatibility: Claude Code, Cursor
   type: execution
   category: review / research / cleanup / documentation
   maturity: draft
-  estimated_time: 5 min / 10 min / 15 min
+  estimated_time: 10 min (single value or a range, e.g., 10-30 min)
 ---
 
 # Skill Title
+
+**Type:** Execution
 
 ## Purpose
 

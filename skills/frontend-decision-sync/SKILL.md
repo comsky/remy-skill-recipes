@@ -10,10 +10,8 @@ description: >
   similar project memory files; or before finalizing frontend work where
   future consistency depends on decisions made during implementation.
 license: MIT
-compatibility:
-  - Claude Code
-  - Cursor
 metadata:
+  compatibility: Claude Code, Cursor
   type: execution
   category: documentation
   maturity: draft

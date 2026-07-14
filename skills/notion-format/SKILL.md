@@ -3,14 +3,13 @@ name: notion-format
 description: >
   Format and publish rich Notion documents with structured sections, code blocks,
   tables, callouts, quotes, mermaid diagrams, and emojis. Use when the user asks
-  to organize, write, or save content to Notion, or when invoked with /notion-format.
+  to organize, write, or save content to Notion (e.g., "notion에 정리해줘",
+  "notion에 저장해줘"), or when invoked with /notion-format.
   Detects content type (tech-doc, meeting-notes, analysis, tutorial, bug-report)
   and applies the appropriate formatting template automatically.
 license: MIT
-compatibility:
-  - Claude Code
-  - Cursor
 metadata:
+  compatibility: Claude Code, Cursor
   type: execution
   category: documentation
   maturity: draft
@@ -87,7 +86,7 @@ use the **priority order** below (first match wins):
 | 2 | `meeting-notes` | 회의, 미팅, 논의, 결정사항, 액션아이템, meeting, agenda, attendees | 📋 |
 | 3 | `tutorial` | 튜토리얼, 가이드, 사용법, 설치, how-to, step-by-step, prerequisites | 📖 |
 | 4 | `tech-doc` | 파이프라인, 아키텍처, API, 스키마, 시스템 설계, spec, schema, infra | 🏗️ |
-| 5 | `analysis` | 분석, 비교, 조사, 결과, 인사이트, benchmark, evaluation, comparison | 📊 |
+| 5 | `analysis` | 분석, 비교, 조사, 검토, 결과, 인사이트, benchmark, evaluation, comparison | 📊 |
 | 6 | `general` | (fallback — none of the above) | 📝 |
 
 **Priority rationale:** Bug reports and meeting notes have the most
@@ -103,6 +102,10 @@ If the user explicitly states a type, skip detection and use it directly.
 
 Each template defines the **section skeleton**. Adapt section count and depth
 to actual content — do not generate empty placeholder sections.
+
+섹션 제목 언어는 입력 언어를 따른다 — 아래 스켈레톤은 한국어 예시이며,
+영어 콘텐츠에는 동등한 영어 제목을 사용한다 (예: 증상 → Symptoms,
+타임라인 → Timeline).
 
 #### `bug-report` 🐛
 
@@ -284,11 +287,15 @@ No fixed skeleton. Apply these rules:
 
 ### Step 4 — Notion MCP Save (Optional)
 
-포맷팅 완료 후 반드시 물어보기:
+사용자가 이미 저장을 요청한 경우(예: "notion에 저장해줘"로 시작한 요청)에는
+다시 묻지 않고 저장을 진행한다. 이때 부모 페이지 ID나 데이터베이스 ID를
+모르면 그것만 물어본다.
+
+저장 요청이 없었던 경우에는 포맷팅 완료 후 물어보기:
 
 > "Notion에 저장할까요? 저장할 경우 부모 페이지 ID나 데이터베이스 ID를 알려주세요."
 
-저장 요청 시:
+저장 진행 시:
 
 1. `API-post-search`로 동일 제목 페이지 존재 여부 확인
 2. 없으면 `API-post-page`로 신규 생성
@@ -320,7 +327,8 @@ No fixed skeleton. Apply these rules:
 ## Guardrails
 
 - 콘텐츠가 비어있거나 너무 짧으면(<20자) 추가 입력 요청
-- Notion 저장 전 항상 사용자 확인
+- 명시적 저장 요청이 없으면 Notion 저장 전 사용자 확인 (이미 요청했다면
+  재확인 없이 진행하되, parent ID를 모르면 그것만 확인)
 - 기존 페이지 덮어쓰기 시 명시적 동의 필요
 - Notion MCP 불가 시 포맷팅된 마크다운만 제공하고 경고 메시지 출력
 - parent_id 미제공 시 workspace 최상위에 저장하지 말고 사용자에게 요청
@@ -341,6 +349,7 @@ Common bad outputs:
 - callout을 일반 quote로 대체해 시각적 강조 효과 상실
 - 이모지를 섹션 제목에서 누락해 밋밋한 구조 생성
 - 사용자가 명시한 타입을 무시하고 자동 감지 결과를 사용
+- 사용자가 이미 저장을 요청했는데 "저장할까요?"를 다시 물어 흐름을 끊음
 
 ---
 
@@ -353,7 +362,7 @@ Common bad outputs:
 
 **Output:**
 
-Detected type: `analysis` (분석, 비교 키워드)
+Detected type: `analysis` (검토 키워드 + 수치 비교 구조)
 
 ~~~~
 # 📊 Redis 캐시 도입 검토

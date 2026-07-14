@@ -77,10 +77,8 @@ description: >
   Re-audit code changes to identify side effects, regression risks,
   and unhandled edge cases before merging or deploying.
 license: MIT
-compatibility:
-  - Claude Code
-  - Cursor
 metadata:
+  compatibility: Claude Code, Cursor
   type: execution
   category: review
   maturity: stable
@@ -89,7 +87,7 @@ metadata:
 ```
 
 Agents read only `name` and `description` during discovery (~100 tokens).
-The full markdown body loads on activation (<5000 tokens).
+The full markdown body loads only on activation.
 
 ---
 

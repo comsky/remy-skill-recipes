@@ -2,12 +2,14 @@
 name: change-reaudit
 description: >
   Re-audit code changes to identify side effects, regression risks,
-  and unhandled edge cases before merging or deploying.
+  and unhandled edge cases before merging or deploying. Use after a
+  change is complete and before merging to a shared branch, before
+  deploying a hotfix, after complex multi-module refactoring, or when
+  a previous review may have missed side effects in async,
+  state-mutating, or security-sensitive code paths.
 license: MIT
-compatibility:
-  - Claude Code
-  - Cursor
 metadata:
+  compatibility: Claude Code, Cursor
   type: execution
   category: review
   maturity: stable
@@ -218,7 +220,8 @@ Verify:
 - If context is insufficient to assess a risk area, ask for clarification.
 - Respect constraints and non-goals stated in the change description.
 - Do not inflate severity — use P0/P1/P2 classification honestly.
-- Do not skip risk dimensions because they seem unlikely.
+- Do not skip risk dimensions because they seem unlikely — a dimension may be
+  marked N/A only through the Gate 1 relevance check, never on intuition.
 
 ---
 

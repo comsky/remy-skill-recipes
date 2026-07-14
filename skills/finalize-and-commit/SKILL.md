@@ -6,14 +6,13 @@ description: >
   integrity, structuring clean commits with Conventional Commits format, and
   forcing a post-publish branch/worktree cleanup decision.
 license: MIT
-compatibility:
-  - Claude Code
-  - Cursor
 metadata:
+  compatibility: Claude Code, Cursor
   type: execution
   category: cleanup
   maturity: stable
   estimated_time: 15 min
+  dependencies: branch-context-check
 ---
 
 # Skill: Finalize Changes and Commit (Cleanup, Deduplication, Hardcoded Audit)
@@ -87,7 +86,11 @@ Optional but recommended:
 
 ### Gate -1 – Branch Context Check
 
-Run `branch-context-check` before validating the working set.
+Run `branch-context-check` before validating the working set. If that skill is
+not installed, run the check inline: inspect `git status --short --branch`,
+`git branch --show-current`, `git log --oneline --decorate -5`, and the
+staged/dirty file lists, then classify the branch/worktree against the current
+task intent using the same four verdicts below.
 
 Required outcome:
 
@@ -275,7 +278,9 @@ Required behavior:
 
 Do not end the workflow after push or merge without reporting the cleanup
 decision. Deletion still requires the safety checks from `branch-context-check`
-Gate 6.
+Gate 6 (inline fallback: delete only when the working tree is clean, the PR is
+merged or the user confirms the branch is obsolete, the branch is not the
+current checkout, and no other branch or worktree depends on it).
 
 ---
 
