@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-import os
 import re
 import sys
 from pathlib import Path
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SKILLS_DIR = REPO_ROOT / "skills"
@@ -37,9 +36,22 @@ SYSTEM_REQUIRED_HEADINGS = [
     "Example 2",
 ]
 
+# Files every published skill folder must contain.
+REQUIRED_SKILL_DIR_FILES = ["SKILL.md", "README.md", "README.ko.md"]
 
-TYPE_EXECUTION_PAT = re.compile(r"\*\*Type:\*\*\s*Execution\b", re.IGNORECASE)
-TYPE_SYSTEM_PAT = re.compile(r"\*\*Type:\*\*\s*System\b", re.IGNORECASE)
+# Agent Skills spec limit for frontmatter description.
+MAX_DESCRIPTION_CHARS = 1024
+
+# YAML frontmatter block at the very top of the file.
+FRONTMATTER_PAT = re.compile(r"\A---\s*\n(.*?)\n---\s*\n", re.DOTALL)
+
+# Frontmatter fields. The skill type lives under metadata (single source of
+# truth); the optional "**Type:**" body line is display-only and must agree.
+FM_NAME_PAT = re.compile(r"^name:\s*(\S.*?)\s*$", re.MULTILINE)
+FM_DESC_PAT = re.compile(r"^description:\s*(.*)((?:\n[ \t]+\S.*)*)", re.MULTILINE)
+FM_TYPE_PAT = re.compile(r"^\s*type:\s*(execution|system)\s*$", re.IGNORECASE | re.MULTILINE)
+
+BODY_TYPE_PAT = re.compile(r"\*\*Type:\*\*\s*(Execution|System)\b", re.IGNORECASE)
 
 # Match markdown headings like: "# Title", "## Purpose", "### 1) Detection"
 HEADING_PAT = re.compile(r"^(#{1,6})\s+(.+?)\s*$", re.MULTILINE)
@@ -86,32 +98,73 @@ def find_examples_present(headings: List[str]) -> Tuple[bool, bool]:
     return ex1, ex2
 
 
+def extract_description(fm: str) -> Optional[str]:
+    m = FM_DESC_PAT.search(fm)
+    if not m:
+        return None
+    first = m.group(1).strip()
+    # Folded/literal block scalar indicators carry no content themselves.
+    if first in {">", "|", ">-", "|-", ">+", "|+"}:
+        first = ""
+    cont = " ".join(line.strip() for line in m.group(2).splitlines() if line.strip())
+    return (first + " " + cont).strip()
+
+
 def validate_skill_file(path: Path) -> List[str]:
     errors: List[str] = []
 
     md = path.read_text(encoding="utf-8", errors="replace")
-    headings = extract_headings(md)
-    headings_lower = [h.lower() for h in headings]
 
-    is_execution = bool(TYPE_EXECUTION_PAT.search(md))
-    is_system = bool(TYPE_SYSTEM_PAT.search(md))
+    fm_match = FRONTMATTER_PAT.match(md)
+    if not fm_match:
+        errors.append("Missing YAML frontmatter block (--- ... ---) at the top of the file.")
+        return errors
+    fm = fm_match.group(1)
+    body = md[fm_match.end():]
 
-    if is_execution and is_system:
+    # name: required, must match the skill folder name for SKILL.md files.
+    name_m = FM_NAME_PAT.search(fm)
+    if not name_m:
+        errors.append('Missing "name:" in frontmatter.')
+    elif path.name == "SKILL.md" and name_m.group(1) != path.parent.name:
         errors.append(
-            "Both **Type:** Execution and **Type:** System detected. Choose one."
+            f'Frontmatter name "{name_m.group(1)}" does not match folder name "{path.parent.name}".'
+        )
+
+    # description: required, non-empty, spec length limit.
+    desc = extract_description(fm)
+    if not desc:
+        errors.append('Missing or empty "description:" in frontmatter.')
+    elif len(desc) > MAX_DESCRIPTION_CHARS:
+        errors.append(
+            f"Frontmatter description is {len(desc)} chars; maximum is {MAX_DESCRIPTION_CHARS}."
+        )
+
+    # type: required in frontmatter metadata.
+    fm_type_m = FM_TYPE_PAT.search(fm)
+    if not fm_type_m:
+        errors.append(
+            'Missing skill type in frontmatter. Add "type: execution" or '
+            '"type: system" under metadata.'
         )
         return errors
+    skill_type = fm_type_m.group(1).lower()
 
-    if not is_execution and not is_system:
+    # Optional display line in the body must not contradict the frontmatter.
+    body_type_m = BODY_TYPE_PAT.search(body)
+    if body_type_m and body_type_m.group(1).lower() != skill_type:
         errors.append(
-            'Missing skill type. Add either "**Type:** Execution" or "**Type:** System".'
+            f'Body "**Type:** {body_type_m.group(1)}" contradicts frontmatter '
+            f'"type: {skill_type}".'
         )
-        return errors
 
-    if is_execution:
+    if skill_type == "execution":
         required = EXECUTION_REQUIRED_HEADINGS
     else:
         required = SYSTEM_REQUIRED_HEADINGS
+
+    headings = extract_headings(body)
+    headings_lower = [h.lower() for h in headings]
 
     # Validate required headings
     for req in required:
@@ -136,6 +189,22 @@ def validate_skill_file(path: Path) -> List[str]:
     return errors
 
 
+def validate_skill_dirs() -> List[Tuple[Path, List[str]]]:
+    # Every published skill folder must ship its SKILL.md and both READMEs.
+    failed: List[Tuple[Path, List[str]]] = []
+    for skill_dir in sorted(p for p in SKILLS_DIR.iterdir() if p.is_dir()):
+        if skill_dir.name == "_template":
+            continue
+        missing = [
+            fname
+            for fname in REQUIRED_SKILL_DIR_FILES
+            if not (skill_dir / fname).is_file()
+        ]
+        if missing:
+            failed.append((skill_dir, [f"Missing required file(s): {', '.join(missing)}"]))
+    return failed
+
+
 def main() -> int:
     if not SKILLS_DIR.exists():
         print(f"ERROR: skills directory not found at {SKILLS_DIR}")
@@ -158,7 +227,7 @@ def main() -> int:
         )
         return 0
 
-    failed: List[Tuple[Path, List[str]]] = []
+    failed: List[Tuple[Path, List[str]]] = validate_skill_dirs()
     for p in sorted(md_files):
         errs = validate_skill_file(p)
         if errs:
