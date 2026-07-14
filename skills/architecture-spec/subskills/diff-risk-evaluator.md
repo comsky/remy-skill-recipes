@@ -69,7 +69,7 @@ same row).
 | 4+ | +5 |
 
 Layers are architectural boundaries (e.g., routes, middleware, services,
-repositories, config, infra, tests).
+repositories, config, infra). Test files do not count as a separate layer.
 
 ---
 

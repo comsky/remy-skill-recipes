@@ -7,14 +7,13 @@ description: >
   structuring clean commits with a post-publish branch/worktree cleanup
   decision. Counterpart of finalize-and-commit for documentation projects.
 license: MIT
-compatibility:
-  - Claude Code
-  - Cursor
 metadata:
+  compatibility: Claude Code, Cursor
   type: execution
   category: documentation
   maturity: stable
   estimated_time: 15 min
+  dependencies: branch-context-check
 ---
 
 # Skill: Finalize Documentation and Commit (Review, Consistency, Alignment)
@@ -99,7 +98,11 @@ Optional but recommended:
 
 ### Gate -1 – Branch Context Check
 
-Run `branch-context-check` before validating the working set.
+Run `branch-context-check` before validating the working set. If that skill is
+not installed, run the check inline: inspect `git status --short --branch`,
+`git branch --show-current`, `git log --oneline --decorate -5`, and the
+staged/dirty file lists, then classify the branch/worktree against the current
+documentation task using the same four verdicts below.
 
 Required outcome:
 
@@ -174,8 +177,19 @@ discard changes without explicit user approval.
 
 ### Gate 1 – Convention Discovery
 
-> **PURPOSE:** Since no formal style guide exists, infer conventions from
-> existing documentation to use as the review baseline.
+> **PURPOSE:** Establish the review baseline. Use a provided style guide
+> first; infer conventions from existing documentation only where no
+> explicit guidance exists.
+
+**Step 1-0: Use a provided style guide first**
+
+- If the user provided a style guide or glossary (see Optional inputs), treat
+  it as the primary Convention Reference.
+- Run Steps 1-1a–1-5 only to fill gaps the style guide does not cover (e.g.,
+  frontmatter fields, framework syntax), and never let inferred patterns
+  override explicit style-guide rules.
+- If the style guide fully covers structure, terminology, and tone, skip
+  directly to Step 1-6.
 
 **Step 1-1a: Scan documentation headers**
 
@@ -465,7 +479,9 @@ Required behavior:
 
 Do not end the workflow after push or merge without reporting the cleanup
 decision. Deletion still requires the safety checks from `branch-context-check`
-Gate 6.
+Gate 6 (inline fallback: delete only when the working tree is clean, the PR is
+merged or the user confirms the branch is obsolete, the branch is not the
+current checkout, and no other branch or worktree depends on it).
 
 ---
 

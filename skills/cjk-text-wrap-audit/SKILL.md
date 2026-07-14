@@ -9,10 +9,8 @@ description: >
   evidence-based diagnosis and verification report before any code
   change is applied.
 license: MIT
-compatibility:
-  - Claude Code
-  - Cursor
 metadata:
+  compatibility: Claude Code, Cursor
   type: execution
   category: review
   maturity: draft
@@ -27,8 +25,8 @@ metadata:
 
 Turn ad-hoc CJK (Korean, Japanese, Chinese) line-break firefighting into
 a layered, evidence-first audit. CJK wrap bugs are a class of
-cross-cutting cascade defects: a missing `word-break` rule on `body`,
-an Ant Design / MUI / Mantine `cssinjs` override that wins on
+cross-cutting cascade defects: a missing locale-scoped `word-break`
+rule, an Ant Design / MUI / Mantine `cssinjs` override that wins on
 specificity, an over-eager `text-wrap` algorithm, and a translation
 string with no phrase boundary can each independently cause text to
 shatter mid-syllable or strand a single glyph at line edge.
@@ -187,6 +185,9 @@ Identify a *safe* override location and selector. Prefer:
 - The doubled-class trick: `.ant-typography.ant-typography { … }`
   (specificity 0,2,0) — beats the library's single-class rule
   *without* `!important`.
+- Locale scoping with `:lang(ko)` on the element — a pseudo-class
+  *adds* 0,1,0 specificity (unlike `:where()`, which erases it) and
+  keeps wrap overrides away from `ja` / `zh` text.
 - A scoped wrapper class on the page or layout level.
 
 Avoid:
@@ -204,11 +205,12 @@ Propose the minimum number of layers needed. Stop at the first layer
 that fully resolves the symptom; only escalate if the verification
 matrix in Gate 5 still has failing cells.
 
-**Layer 1 — Global cascade.** Add a base rule on `body` (or the
-nearest app-shell element):
+**Layer 1 — Global cascade.** Add a locale-scoped base rule:
 
 ```css
-body {
+/* Korean only. ja/zh have no inter-word spaces — keep-all would
+   remove every break opportunity there and cause overflow. */
+:lang(ko) {
   word-break: keep-all;
   overflow-wrap: break-word;
 }
@@ -220,23 +222,33 @@ code, pre, kbd, samp {
 }
 ```
 
-`word-break: keep-all` tells the browser not to break *between* CJK
-syllables (which is the default behavior in most engines for
-historical reasons). `overflow-wrap: break-word` is the safety net
-for very long Latin tokens that would otherwise overflow.
+The UA default (`word-break: normal`) allows a break between any two
+CJK syllables — that is what shatters Korean mid-word. `keep-all`
+forbids those intra-word breaks; Korean still wraps at spaces (어절
+boundaries). Japanese and Chinese are written *without* spaces, so
+`keep-all` would leave them no break opportunity at all — never apply
+it to `ja` / `zh`. For `ja`, keep default breaking (optionally
+`line-break: strict` for stricter kinsoku punctuation rules) and bind
+phrases at Layer 4 or with a phrase segmenter such as BudouX. For
+`zh`, the default break-anywhere behavior is correct.
+`overflow-wrap: break-word` is the safety net for very long Latin
+tokens. `:lang(ko)` relies on a correct `lang` attribute
+(`<html lang="ko">` or on the locale subtree) — most i18n frameworks
+set it; verify during Gate 2.
 
 **Layer 2 — Component-library override.** If a UI library injects a
 stronger rule, neutralize it at the same scope:
 
 ```css
-.ant-typography.ant-typography {
+.ant-typography.ant-typography:lang(ko) {
   word-break: keep-all;
   overflow-wrap: break-word;
 }
 ```
 
 (Adjust the selector for whichever library is in use. Use the
-doubled-class trick rather than `!important`.)
+doubled-class trick rather than `!important`, and keep the
+`:lang(ko)` scope so the override never reaches `ja` / `zh` text.)
 
 **Layer 3 — Headline-specific balancing.** For hero / headline text
 where line-length aesthetics matter, add a balanced wrap on the
@@ -304,6 +316,9 @@ Gate 5 on the live build. Report the matrix again.
   specificity to 0 and the override will silently lose.
 - Never apply `word-break: keep-all` to `code`, `pre`, `kbd`, or
   `samp`. Always carve out monospace contexts.
+- Never apply `word-break: keep-all` to Japanese or Chinese text.
+  They have no inter-word spaces, so `keep-all` removes every break
+  opportunity and causes overflow. Scope the rule with `:lang(ko)`.
 - Never edit a translation file without first dumping the existing
   string as Unicode codepoints. Hidden characters (NBSP, ZWJ, soft
   hyphens) are common and easy to miss.
@@ -338,6 +353,9 @@ Common bad outputs:
 
 - Applying `word-break: keep-all` globally without exempting
   `code` / `pre` — breaks code blocks across the entire app.
+- Applying `word-break: keep-all` unscoped (e.g., on `body`) in a
+  product that also ships `ja` / `zh` — those locales have no spaces,
+  so whole clauses become unbreakable and overflow narrow screens.
 - Wrapping the override in `:where(.ant-typography)` — specificity
   drops to 0, the library rule wins, and the "fix" silently has no
   effect.
@@ -382,7 +400,7 @@ Project has no global `word-break` rule.
    needed.
 5. **Proposed Patch** — add to `src/styles/globals.css`:
    ```css
-   body { word-break: keep-all; overflow-wrap: break-word; }
+   :lang(ko) { word-break: keep-all; overflow-wrap: break-word; }
    code, pre, kbd, samp { word-break: normal; overflow-wrap: normal; }
    ```
 6. **Verification Plan** — re-test at 100/125/150/200% × sm/md/lg ×
@@ -395,12 +413,12 @@ Project has no global `word-break` rule.
 
 **Input:**
 
-D.Hub2 portal Korean login hero shows three rotating slogans built
-with Ant Design `<Typography.Title>`. Slogan 2 reads
+A SaaS admin portal's Korean login hero shows three rotating slogans
+built with Ant Design `<Typography.Title>`. Slogan 2 reads
 `"더 스마트하게 구축하고, 더 빠르게 이동하세요"` and breaks as
 `"이동하세"` / `"요"` at `lg`. Project uses Tailwind 3 + Ant Design 5.
 Hero element is `src/pages/login/index.tsx`. Translation key
-`login.hero.title2` lives at `public/locales/ko/common.json:1373`.
+`login.hero.title2` lives in `public/locales/ko/common.json`.
 
 **Output:**
 
@@ -416,7 +434,8 @@ Hero element is `src/pages/login/index.tsx`. Translation key
    is `wrap` (default).
 
 3. **Root Cause** — Layers 1 + 2 + 3 + 4 are all required:
-   - Global rule was missing the monospace exemption.
+   - Global rule was unscoped (`body`) and missing the monospace
+     exemption; it must move to `:lang(ko)`.
    - Ant Design's `cssinjs` rule wins over `body`.
    - Even after the override, `text-wrap: wrap` will orphan `더` on
      the previous line because the natural break lands one word
@@ -429,10 +448,10 @@ Hero element is `src/pages/login/index.tsx`. Translation key
 
 5. **Proposed Patch:**
 
-   `src/index.css`:
+   `src/index.css` (replaces the existing unscoped `body` rule):
    ```css
-   /* International text wrapping */
-   body {
+   /* Korean-scoped text wrapping */
+   :lang(ko) {
      word-break: keep-all;
      overflow-wrap: break-word;
    }
@@ -441,7 +460,7 @@ Hero element is `src/pages/login/index.tsx`. Translation key
      overflow-wrap: normal;
    }
    /* Ant Design override — doubled-class beats single-class without !important */
-   .ant-typography.ant-typography {
+   .ant-typography.ant-typography:lang(ko) {
      word-break: keep-all;
      overflow-wrap: break-word;
    }

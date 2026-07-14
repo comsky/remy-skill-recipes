@@ -7,10 +7,8 @@ description: >
   Use when evaluating how OSS projects implement a specific feature,
   choosing architecture patterns, or benchmarking implementation strategies.
 license: MIT
-compatibility:
-  - Claude Code
-  - Cursor
 metadata:
+  compatibility: Claude Code, Cursor
   type: execution
   category: research
   maturity: draft
@@ -134,7 +132,11 @@ Use these URL patterns for efficient navigation:
 | Raw file content | `https://raw.githubusercontent.com/{owner}/{repo}/{branch}/{path}` |
 | GitHub API (directory) | `https://api.github.com/repos/{owner}/{repo}/contents/{path}` |
 | GitHub API (tree, recursive) | `https://api.github.com/repos/{owner}/{repo}/git/trees/{branch}?recursive=1` |
-| Search within repo | `https://github.com/{owner}/{repo}/search?q={keyword}&type=code` |
+| Code search (API, auth required) | `https://api.github.com/search/code?q=repo:{owner}/{repo}+{keyword}` |
+
+GitHub code search (both the web UI and the `/search/code` API) requires
+authentication. Without credentials, locate files via the recursive tree
+API plus keyword-guessed paths instead of code search.
 
 Preferred tools (in order of reliability):
 
@@ -393,4 +395,4 @@ Focus: how session management and JWT handling are implemented internally
 
 - This skill complements `competitive-feature-benchmark` which operates at the UX/interaction level. Use both together for a complete picture: code-level implementation (this skill) + user-facing design (competitive-feature-benchmark).
 - For very large repositories, consider analyzing only the most recent tagged release rather than the HEAD of the default branch to ensure stability of analysis.
-- GitHub API has rate limits (60 requests/hour unauthenticated, 5000/hour with token). If rate-limited, switch to `raw.githubusercontent.com` URLs or `WebFetch` on regular GitHub pages.
+- GitHub API has rate limits (60 requests/hour unauthenticated, 5000/hour with token). If rate-limited, switch to `raw.githubusercontent.com` URLs or `WebFetch` on regular GitHub pages. The `/search/code` endpoint additionally requires authentication and is limited to 10 requests/minute.

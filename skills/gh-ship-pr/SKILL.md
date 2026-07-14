@@ -7,14 +7,13 @@ description: >
   explicit safety gates. Use when a solo developer repeatedly asks to publish
   committed work, register a ready PR, handle PR feedback, and complete merge.
 license: MIT
-compatibility:
-  - Claude Code
-  - Cursor
 metadata:
+  compatibility: Claude Code, Cursor
   type: execution
   category: automation
   maturity: draft
   estimated_time: 10-30 min
+  dependencies: branch-context-check
 ---
 
 # Skill: GH Ship PR (Push, Ready, Review, Merge)
@@ -102,7 +101,10 @@ Optional but recommended:
 
 ### Gate -1 - Branch Intent Check
 
-Run `branch-context-check` before pushing or changing PR state.
+Run `branch-context-check` before pushing or changing PR state. If that skill
+is not installed, gather the evidence below directly and classify the verdict
+inline using the same four categories (`match`, `ambiguous`, `mismatch`,
+`blocked`).
 
 Required evidence:
 
@@ -313,6 +315,9 @@ After merge or auto-merge setup:
 Do not delete local branches, remove worktrees, or switch branches unless the
 user explicitly selected that cleanup action.
 
+These options mirror `branch-context-check` Gate 6; when that skill is
+installed, apply its Gate 6 safety checks before any deletion.
+
 ---
 
 ## Guardrails
@@ -391,7 +396,7 @@ Common bad outputs:
 **Output:**
 
 1. Branch and PR Snapshot
-   - Branch `codex/fix-billing-retry` is two commits ahead of origin.
+   - Branch `fix/billing-retry` is two commits ahead of origin.
    - Working tree is clean.
    - Existing PR #87 is draft and targets `main`.
 2. User Options Selected

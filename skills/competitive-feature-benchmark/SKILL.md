@@ -5,10 +5,8 @@ description: >
   at the UX and interaction level. Provides structured comparison tables
   and strategic differentiation recommendations.
 license: MIT
-compatibility:
-  - Claude Code
-  - Cursor
 metadata:
+  compatibility: Claude Code, Cursor
   type: execution
   category: research
   maturity: draft
