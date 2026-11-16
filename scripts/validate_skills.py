@@ -59,7 +59,8 @@ HEADING_PAT = re.compile(r"^(#{1,6})\s+(.+?)\s*$", re.MULTILINE)
 
 def is_template_file(path: Path) -> bool:
     # Ignore templates (they will intentionally have placeholders).
-    return "_template" in path.parts
+    # Check parts below skills/ only, so a clone path like ~/references/... does not match.
+    return "_template" in path.relative_to(SKILLS_DIR).parts
 
 
 def is_readme_file(path: Path) -> bool:
@@ -67,7 +68,9 @@ def is_readme_file(path: Path) -> bool:
 
 
 def is_subskill_file(path: Path) -> bool:
-    return "subskills" in path.parts
+    # Sub-skills and reference docs are not standalone skills.
+    parts = path.relative_to(SKILLS_DIR).parts
+    return "subskills" in parts or "references" in parts
 
 
 def is_markdown_file(path: Path) -> bool:
