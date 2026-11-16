@@ -9,6 +9,7 @@ This skill:
 
 - Skips merged, closed, and draft PRs
 - Sets scope and count per level (`low` · `medium` · `high` · `xhigh` · `max`); ADR PRs default to `xhigh`
+- Takes candidates from `/code-review` when the host provides it; otherwise runs its own angle table
 - Keeps only findings with a concrete failure scenario
 - Cross-checks PRs that form two sides of one contract
 - Derives the review event from the priorities: P0 → `REQUEST_CHANGES`, only P3 → `APPROVE`, otherwise `COMMENT`
@@ -29,7 +30,7 @@ verdict consistent across PRs.
 ## Procedure (7 Steps)
 
 1. **Confirm Targets** — read state, head SHA, and ADR status; fetch the diff and head ref
-2. **Review at the Chosen Level** — run the angles in the level table; verify each candidate
+2. **Review at the Chosen Level** — take candidates from `/code-review` (or the level table's angles); verify each on the PR head
 3. **Assign Priority** — P0–P3 without inflation or deflation
 4. **Write in STE-Style Korean** — one fact per sentence, 합니다체, no method talk
 5. **Post** — findings JSON → `post_review.py --dry-run` → post

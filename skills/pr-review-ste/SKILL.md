@@ -2,7 +2,8 @@
 name: pr-review-ste
 description: >
   Review one or more GitHub pull requests at a chosen level
-  (low|medium|high|xhigh|max; default high, xhigh for ADR PRs), verify each
+  (low|medium|high|xhigh|max; default high, xhigh for ADR PRs), taking
+  candidates from /code-review when the host provides it, verify each
   finding against the PR head, and post one review per PR whose comments follow
   STE-style Korean with P0–P3 priority marks. A PR with any P0 gets
   REQUEST_CHANGES, a PR with only P3 findings (or none) gets APPROVE with the
@@ -29,7 +30,7 @@ metadata:
 
 Review GitHub pull requests and post the result as one review per PR:
 
-- Find defects at a fixed scope per review level (angles, candidates, cap)
+- Find defects at a fixed scope per review level (angles, candidates, cap), with `/code-review` as the candidate source when the host provides it
 - Keep only findings with a concrete failure scenario, verified on the PR head
 - Rank each finding P0–P3 and derive the review event from the ranks
 - Write every comment in STE-style Korean: one fact per sentence, no method talk
@@ -72,6 +73,7 @@ Optional but recommended:
 - [ ] `--fix`, anywhere in the arguments
 - [ ] Paths to related repositories when a PR changes a cross-repo contract
 - [ ] Repository rule files (AGENTS.md, CLAUDE.md, testing guidelines)
+- [ ] A host `/code-review` command (e.g., Claude Code). Without it, the built-in angles run instead
 
 Argument rules:
 
@@ -143,7 +145,41 @@ Do not `checkout` or `switch` in a shared checkout. Read with `git show` and
 
 ### Step 2 — Review at the Chosen Level
 
-The level sets scope and count. Follow the table exactly.
+Candidates come from one of two sources. Use source A when the host provides
+`/code-review` and the user did not ask to skip it; otherwise use source B.
+Both sources go through the same rules, cap, and verification in this step,
+and both produce posted text only through Steps 3–5: the same priorities,
+the same STE style, and the same inline comment template from Output Format.
+
+**Source A — `/code-review`.** Run it once per PR, from a detached worktree at
+the PR head, so files on disk match the reviewed head and the shared checkout
+never switches:
+
+```bash
+git -C <checkout> worktree add --detach <worktrees>/<repo>-pr<N>-fix refs/remotes/pr/<N>
+```
+
+```text
+/code-review <level> <N>
+```
+
+- Pass this PR's level from Step 1. Run `max` only when the user passed `max`; a default level never escalates to it.
+- Do not pass `--comment` or `--fix`. Posting and fixing happen only in Steps 5 and 6.
+- Do not pass `--max-findings`. The choice persists across runs. Cut to the level's cap here instead.
+- If `/code-review` runs in the background, wait for its result before writing this PR's findings JSON.
+- Each returned finding (`file`, `line`, `summary`, `failure_scenario`, `category`, optional `verdict`) is a candidate:
+  - `summary` → `title`, rewritten per Step 4.
+  - `failure_scenario` → `body` as 조건 · 재현 · 결과, plus 제안, rewritten per Step 4.
+  - Priority: assign per Step 3. `/code-review` gives none.
+  - Confirm `line` on `refs/remotes/pr/<N>`. Correct it or drop the candidate if it does not point to the defect.
+  - `verdict` `PLAUSIBLE` or missing: verify it in the code yourself, as for sub-agent findings. Drop it if you cannot.
+- `/code-review` does not apply the ADR readings or the paired-PR contract check below. For ADR PRs and paired PRs, run those yourself and add the results as candidates.
+- Do not also run the finder sub-agents for this PR.
+- Keep the worktree for Step 6 when `--fix` is set. Otherwise remove it after this PR's review is posted.
+
+**Source B — built-in angles.** The level sets scope and count. Follow the
+table exactly. With source A, only the "Max findings per PR" and "Keep rule"
+columns apply.
 
 | Level | Angles | Candidates per angle | Max findings per PR | Keep rule |
 | --- | --- | --- | --- | --- |
@@ -181,7 +217,7 @@ Rules:
 - When PRs in the same run are two sides of one contract (e.g., a client's save shape and a server's validator), compare both sides. Report a mismatch on both reviews.
 - Null handling: servers often send an empty optional as `null` or `[]`, not as a missing field. Check whether test fixtures are more lenient than real responses.
 
-Large diffs: when there are two or more PRs, or one PR's code diff exceeds about
+Large diffs (source B only): when there are two or more PRs, or one PR's code diff exceeds about
 1,500 lines, run one read-only sub-agent per PR in parallel. Fill
 [references/finder-brief.md](references/finder-brief.md) as its brief, copying
 the level row (angles, candidates per angle, cap, keep rule). Verify every
@@ -235,7 +271,7 @@ Write one findings JSON per PR.
 ```
 
 - `line` is the line number on the PR head.
-- `title` is the one-sentence summary; `body` is the detail below it. Both in 합니다체. The script adds the `🟡 **Pn**` mark.
+- `title` is the one-sentence summary; `body` is the detail below it, in the inline comment template's order (조건 · 재현 · 결과, then 제안). Both in 합니다체, whichever source found the finding. The script adds the `🟡 **Pn**` mark.
 - Keep findings on lines outside the diff as they are. The script moves them into the body under their priority group, with detail.
 
 Dry-run first, then post.
@@ -273,6 +309,7 @@ gh pr view <N> --repo <owner/repo> --json state,headRefName,headRefOid,headRepos
 git -C <checkout> worktree add --detach <worktrees>/<repo>-pr<N>-fix refs/remotes/pr/<N>
 ```
 
+- If source A in Step 2 already created this worktree, reuse it. Confirm its `HEAD` is still the reviewed head.
 - Never fix in the shared checkout. Prepare dependencies the way the repository's rule files say.
 - Assign each finding an outcome:
   - `fixed`: fixed.
@@ -322,7 +359,8 @@ Report to the user in the table from Output Format item 3.
 ## Guardrails
 
 - Never post a finding without a concrete failure scenario on the PR head. At `max`, mark a low-confidence finding 「확인 필요」 instead of presenting it as verified.
-- Never post sub-agent findings (P0–P2) without verifying them in the code yourself.
+- Never post sub-agent findings (P0–P2) or `/code-review` findings without a `CONFIRMED` verdict without verifying them in the code yourself.
+- Never let `/code-review` post or fix: no `--comment`, no `--fix`, no `--max-findings`.
 - Never pick the review event by hand; `post_review.py` derives it from the priorities.
 - Never lower a priority to obtain an approval, and never inflate one.
 - Never review merged, closed, or draft PRs.
@@ -346,6 +384,7 @@ Common bad outputs:
 - Duplicate findings for the same defect at the same location
 - Approving a PR whose P2 was quietly lowered to P3
 - Posted text that names the skill, `/code-review`, the level, or "AI review"
+- Pasting `/code-review` output as is: English prose, no priority, line numbers not checked on the PR head
 - Reviewing one side of a cross-repo contract and missing the mismatch on the other side
 - Pushing a fix commit onto a head that moved after the review
 - Fix commit subjects like 「리뷰 반영」 that do not say what changed
@@ -362,8 +401,14 @@ Common bad outputs:
 ```
 
 PR #3338 is open, not a draft, changes 4 files, no ADR. Level defaults to `high`.
+The host provides `/code-review`.
 
 **Output:**
+
+`/code-review high 3338` runs from a detached worktree at the PR head and
+returns 4 candidates. One reports behavior that predates the PR and is dropped.
+One `PLAUSIBLE` candidate does not reproduce on the head and is dropped. The
+other 2 get P1 and P3 and are rewritten per Step 4.
 
 Posted review (event `COMMENT`, 1 inline comment, 1 in body):
 
@@ -406,7 +451,7 @@ The PRs live in two repositories, so the input uses links. A bare number resolve
 **Output:**
 
 1. #514 is skipped as 「건너뜀(초안)」.
-2. Two PRs → one read-only sub-agent per PR, each briefed with the `high` row and the other repository as the contract side.
+2. The host has no `/code-review`, so source B runs. Two PRs → one read-only sub-agent per PR, each briefed with the `high` row and the other repository as the contract side.
 3. Cross-check: #512 sends `limit: null` when unset; #513 rejects `null` and accepts only a missing field. The mismatch is reported on both reviews as P0 (saved widgets fail to load).
 4. A sub-agent's P2 on #513 does not reproduce on the head and is dropped.
 5. Reviews posted: #512 `REQUEST_CHANGES` (P0 1, P2 2), #513 `REQUEST_CHANGES` (P0 1, P3 1).
@@ -428,4 +473,5 @@ Close call not posted: #513 retry backoff without jitter — no concrete failure
 ## Notes
 
 - `scripts/post_review.py` needs Python 3.9+ and an authenticated `gh`.
-- `references/finder-brief.md` is the sub-agent brief for large or multi-PR runs.
+- `references/finder-brief.md` is the sub-agent brief for large or multi-PR runs without `/code-review`.
+- `/code-review` refers to the host's leveled code-review command (Claude Code). Hosts without it use source B, so the skill stays usable there.
