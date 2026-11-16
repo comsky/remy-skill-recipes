@@ -26,6 +26,7 @@ Cursor, Claude Code, VS Code + Copilot, Codex, Gemini CLI 등 SKILL.md 호환 �
 | [gh-ship-pr](skills/gh-ship-pr/) | Execution | 커밋된 브랜치를 push하고 PR 정식 등록, CI 대기, 리뷰 코멘트 처리, 머지까지 수행 |
 | [notion-format](skills/notion-format/) | Execution | 콘텐츠 타입 자동 감지 및 Notion 문서 리치 포맷팅 |
 | [oss-code-analysis](skills/oss-code-analysis/) | Execution | OSS 레포 코드 수준 분석 (비교/심층 모드) |
+| [pr-review-ste](skills/pr-review-ste/) | Execution | 강도별 PR 리뷰 후 P0–P3 지적을 STE 문체 한국어 댓글로 게시, 선택적 수정까지 수행 |
 | [ux-sentinel](skills/ux-sentinel/) | System | 반복 UX 개념 자동 감지 및 Notion DB 등록 |
 
 ---
