@@ -92,15 +92,15 @@ merges, thread resolves, or force pushes.
 
 1. Per PR, one GitHub review:
    - Inline comments on lines inside the diff
-   - A body that starts with one count line (`🟡 P2 4 · ⚪ P3 1`), then one group per priority (`**🟡 P2 수정 권장**`) with a summary and a PR-head line link per finding; findings outside the diff carry their detail in the body
+   - A body that starts with a count table (one `| 💡 P2 수정 권장 | 4 |` row per priority that has findings), then one table row per finding (priority, summary, PR-head line link); findings outside the diff carry their detail below the table, under their priority and link
    - Event: `REQUEST_CHANGES` (any P0) · `APPROVE` (only P3, or none) · `COMMENT` (otherwise; also for the user's own PR)
-2. Per PR with `--fix`: one fix commit on the PR branch and one PR comment listing each finding's outcome (`✅ 수정` · `⏭️ 건너뜀` · `➖ 변경 불필요`) with the fix commit link.
+2. Per PR with `--fix`: one fix commit on the PR branch and one PR comment that starts with a count table (one `| ✅ 수정 | 2 |` row per outcome that occurs) and then has one table row per finding with its outcome (`✅ 수정` · `⏭️ 건너뜀` · `➖ 변경 불필요`) with the fix commit link.
 3. To the user, one table: PR link (review URL), applied level (and whether ADR raised it to `xhigh`), state, counts per priority, one-line key point. Skipped PRs with the reason. One or two lines on unposted candidates where the call was close. With `--fix`: fix commit, counts per outcome, checks run and their result, PR author when the PR is not the user's, and one line per skipped finding.
 
 Inline comment template:
 
 ```markdown
-🟡 **P2** 결함을 한 문장으로(합니다체).
+💡 **P2** 결함을 한 문장으로(합니다체).
 
 - 조건: …
 - 재현: …
@@ -109,7 +109,7 @@ Inline comment template:
 제안: 한두 문장.
 ```
 
-Priority marks: 🔴 P0 · 🟠 P1 · 🟡 P2 · ⚪ P3. Inline comments and the body use the same marks.
+Priority marks: 🚨 P0 · ⚠️ P1 · 💡 P2 · 💬 P3. Inline comments and the body use the same marks.
 
 ---
 
@@ -271,7 +271,7 @@ Write one findings JSON per PR.
 ```
 
 - `line` is the line number on the PR head.
-- `title` is the one-sentence summary; `body` is the detail below it, in the inline comment template's order (조건 · 재현 · 결과, then 제안). Both in 합니다체, whichever source found the finding. The script adds the `🟡 **Pn**` mark.
+- `title` is the one-sentence summary; `body` is the detail below it, in the inline comment template's order (조건 · 재현 · 결과, then 제안). Both in 합니다체, whichever source found the finding. The script adds the `💡 **Pn**` mark.
 - Keep findings on lines outside the diff as they are. The script moves them into the body under their priority group, with detail.
 
 Dry-run first, then post.
@@ -413,17 +413,21 @@ other 2 get P1 and P3 and are rewritten per Step 4.
 Posted review (event `COMMENT`, 1 inline comment, 1 in body):
 
 ```markdown
-🟠 P1 1 · ⚪ P3 1
+| 우선순위 | 건수 |
+| --- | ---: |
+| ⚠️ P1 머지 전 수정 | 1 |
+| 💬 P3 선택 | 1 |
 
-**🟠 P1 머지 전 수정**
-- 필터를 모두 지우면 저장된 조회 조건이 빈 배열 대신 `null` 로 저장됩니다 [`filters.ts:58`](…#L58)
+| 우선순위 | 지적 | 위치 |
+| --- | --- | --- |
+| ⚠️ P1 | 필터를 모두 지우면 저장된 조회 조건이 빈 배열 대신 `null` 로 저장됩니다 | [`filters.ts:58`](…#L58) |
+| 💬 P3 | `formatRange` 가 `utils/date.ts` 의 `toRangeLabel` 과 같은 일을 합니다 | [`Header.tsx:21`](…#L21) |
 
-**⚪ P3 선택**
-- `formatRange` 가 `utils/date.ts` 의 `toRangeLabel` 과 같은 일을 합니다 [`Header.tsx:21`](…#L21)
+**💬 P3 [`Header.tsx:21`](…#L21)**
 
-  - 조건: 같은 입력에 같은 문자열을 냅니다.
+- 조건: 같은 입력에 같은 문자열을 냅니다.
 
-  제안: `toRangeLabel` 을 씁니다.
+제안: `toRangeLabel` 을 씁니다.
 ```
 
 Final report:

@@ -39,6 +39,45 @@ verdict consistent across PRs.
 
 ---
 
+## Posted Format
+
+Priority marks: 🚨 P0 차단 · ⚠️ P1 머지 전 수정 · 💡 P2 수정 권장 · 💬 P3 선택.
+
+The review body is a count table, then one row per finding. A finding on a
+diff line gets an inline comment (`⚠️ **P1** …`); a finding outside the diff
+carries its detail below the table.
+
+```markdown
+| 우선순위 | 건수 |
+| --- | ---: |
+| ⚠️ P1 머지 전 수정 | 1 |
+| 💬 P3 선택 | 1 |
+
+| 우선순위 | 지적 | 위치 |
+| --- | --- | --- |
+| ⚠️ P1 | 필터를 모두 지우면 조회 조건이 `null` 로 저장됩니다 | [`filters.ts:58`](…#L58) |
+| 💬 P3 | `formatRange` 가 `toRangeLabel` 과 같은 일을 합니다 | [`Header.tsx:21`](…#L21) |
+```
+
+The `--fix` outcome comment has the same shape: a count table per outcome, the
+fix commit link, then one row per finding.
+
+```markdown
+| 결과 | 건수 |
+| --- | ---: |
+| ✅ 수정 | 1 |
+| ⏭️ 건너뜀 | 1 |
+
+수정 커밋: [`0123456ab`](…)
+
+| 결과 | 우선순위 | 지적 | 위치 | 사유 |
+| --- | --- | --- | --- | --- |
+| ✅ 수정 | ⚠️ P1 | 필터를 모두 지우면 조회 조건이 `null` 로 저장됩니다 | [`filters.ts:58`](…#L58) |  |
+| ⏭️ 건너뜀 | 💬 P3 | `formatRange` 가 `toRangeLabel` 과 같은 일을 합니다 | [`Header.tsx:21`](…#L21) | 다른 PR 범위입니다 |
+```
+
+---
+
 ## Usage
 
 ```text
