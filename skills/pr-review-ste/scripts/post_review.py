@@ -20,7 +20,7 @@ import sys
 from urllib.parse import quote
 
 PRIORITIES = ("P0", "P1", "P2", "P3")
-MARK = {"P0": "🔴", "P1": "🟠", "P2": "🟡", "P3": "⚪"}
+MARK = {"P0": "🚨", "P1": "⚠️", "P2": "💡", "P3": "💬"}
 LABEL = {"P0": "차단", "P1": "머지 전 수정", "P2": "수정 권장", "P3": "선택"}
 OUTCOME = {"fixed": "✅ 수정", "skipped": "⏭️ 건너뜀", "no_change_needed": "➖ 변경 불필요"}
 
@@ -67,36 +67,45 @@ def validate(data: dict) -> list[dict]:
             sys.exit(f"finding {i} has priority {f['priority']!r}; use one of {PRIORITIES}")
         if not isinstance(f["line"], int) or f["line"] < 1:
             sys.exit(f"finding {i} needs a positive integer line")
+        if not isinstance(f["title"], str) or not f["title"].strip() or not isinstance(f["body"], str):
+            sys.exit(f"finding {i} needs a non-empty string title and a string body")
     return sorted(findings, key=lambda f: PRIORITIES.index(f["priority"]))
 
 
 def validate_outcomes(data: dict) -> None:
     findings = data["findings"]  # file order, so the index matches the JSON
+    if not findings:
+        sys.exit("no findings: there is no outcome to report")
     for i, f in enumerate(findings):
         if f.get("outcome") not in OUTCOME:
             sys.exit(f"finding {i} needs outcome in {tuple(OUTCOME)}")
-        if f["outcome"] != "fixed" and not f.get("reason"):
+        if f["outcome"] != "fixed" and not (isinstance(f.get("reason"), str) and f["reason"].strip()):
             sys.exit(f"finding {i} is {f['outcome']}; give it a reason")
     if any(f["outcome"] == "fixed" for f in findings) and not data.get("fix_sha"):
         sys.exit("a fixed finding needs top-level fix_sha")
 
 
+def cell(text: str) -> str:
+    """Keep free text inside one table cell."""
+    return re.sub(r"\s*\n\s*", " ", text.strip()).replace("|", "\\|")
+
+
 def build_fix_report(data: dict, findings: list[dict]) -> str:
     blob = f"https://github.com/{data['repo']}/blob/{data['head_sha']}"
-    counts = " · ".join(
-        f"{label} {n}"
+    rows = [
+        f"| {label} | {n} |"
         for key, label in OUTCOME.items()
         if (n := sum(f["outcome"] == key for f in findings))
-    )
-    lines = [counts]
+    ]
+    lines = ["| 결과 | 건수 |", "| --- | ---: |", *rows, ""]
     if sha := data.get("fix_sha"):
         lines.append(f"수정 커밋: [`{sha[:9]}`](https://github.com/{data['repo']}/commit/{sha})")
-    lines.append("")
+    lines += ["", "| 결과 | 우선순위 | 지적 | 위치 | 사유 |", "| --- | --- | --- | --- | --- |"]
     for f in findings:
         where = f"[`{f['file'].rsplit('/', 1)[-1]}:{f['line']}`]({blob}/{quote(f['file'])}#L{f['line']})"
-        reason = f" — {f['reason'].strip()}" if f["outcome"] != "fixed" else ""
+        reason = cell(f["reason"]) if f["outcome"] != "fixed" else ""
         lines.append(
-            f"- {OUTCOME[f['outcome']]} {MARK[f['priority']]} {f['priority']} {f['title']} {where}{reason}"
+            f"| {OUTCOME[f['outcome']]} | {MARK[f['priority']]} {f['priority']} | {cell(f['title'])} | {where} | {reason} |"
         )
     return "\n".join(lines).rstrip() + "\n"
 
@@ -110,19 +119,18 @@ def build(data: dict, findings: list[dict], diff: str, own_pr: bool) -> dict:
     has_p0 = any(f["priority"] == "P0" for f in findings)
     groups = {p: [f for f in findings if f["priority"] == p] for p in PRIORITIES}
     # The body states findings only: no skill, command, level or method names.
-    head = " · ".join(f"{MARK[p]} {p} {len(g)}" for p, g in groups.items() if g)
-    lines = [head or "지적할 항목이 없습니다."]
+    rows = [f"| {MARK[p]} {p} {LABEL[p]} | {len(g)} |" for p, g in groups.items() if g]
+    lines = ["| 우선순위 | 건수 |", "| --- | ---: |", *rows] if rows else ["지적할 항목이 없습니다."]
     blob = f"https://github.com/{data['repo']}/blob/{data['head_sha']}"
-    for p, group in groups.items():
-        if not group:
-            continue
-        lines += ["", f"**{MARK[p]} {p} {LABEL[p]}**"]
-        for f in group:
-            where = f"[`{f['file'].rsplit('/', 1)[-1]}:{f['line']}`]({blob}/{quote(f['file'])}#L{f['line']})"
-            lines.append(f"- {f['title']} {where}")
-            if f in outside:
-                detail = f["body"].strip().replace("\n", "\n  ")
-                lines.append(f"\n  {detail}")
+    if findings:
+        lines += ["", "| 우선순위 | 지적 | 위치 |", "| --- | --- | --- |"]
+    details = []
+    for f in findings:  # validate() sorted these by priority
+        where = f"[`{f['file'].rsplit('/', 1)[-1]}:{f['line']}`]({blob}/{quote(f['file'])}#L{f['line']})"
+        lines.append(f"| {MARK[f['priority']]} {f['priority']} | {cell(f['title'])} | {where} |")
+        if f in outside:  # no inline comment can carry the detail
+            details += ["", f"**{MARK[f['priority']]} {f['priority']} {where}**", "", f["body"].strip()]
+    lines += details
 
     only_p3 = all(f["priority"] == "P3" for f in findings)
     event = "REQUEST_CHANGES" if has_p0 else "APPROVE" if only_p3 else "COMMENT"
