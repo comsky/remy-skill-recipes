@@ -36,6 +36,7 @@ TEXT = {
         "outcome_head": "| 결과 | 우선순위 | 지적 | 위치 | 사유 |",
         "fix_commit": "수정 커밋",
         "no_findings": "🎉🎉🎉 지적할 항목이 없습니다. 🎉🎉🎉",
+        "p3_approve": "🎉🎉🎉 P3 제안만 있어 승인합니다. 🎉🎉🎉",
         "own_p0": "> P0 가 있으나 본인 PR 이라 변경 요청 대신 댓글로 남깁니다.",
     },
     "en": {
@@ -47,6 +48,7 @@ TEXT = {
         "outcome_head": "| Outcome | Priority | Finding | Location | Reason |",
         "fix_commit": "Fix commit",
         "no_findings": "🎉🎉🎉 No findings. 🎉🎉🎉",
+        "p3_approve": "🎉🎉🎉 Approved. Only P3 suggestions remain. 🎉🎉🎉",
         "own_p0": "> This PR has a P0. It is your own PR, so this review is a comment, not a change request.",
     },
 }
@@ -170,6 +172,8 @@ def build(data: dict, findings: list[dict], diff: str, own_pr: bool) -> dict:
     if has_p0 and own_pr:
         event = "COMMENT"
         lines += ["", t["own_p0"]]
+    if event == "APPROVE" and findings:  # only P3 left; the no-findings body already has the marks
+        lines = [t["p3_approve"], "", *lines]
 
     return {
         "commit_id": data["head_sha"],
