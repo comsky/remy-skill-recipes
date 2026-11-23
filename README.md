@@ -28,7 +28,7 @@ compatible with Cursor, Claude Code, VS Code + Copilot, Codex, Gemini CLI, and o
 | [gh-ship-pr](skills/gh-ship-pr/) | Execution | Push a committed branch, register a ready PR, optionally wait for CI, address review comments, and merge |
 | [notion-format](skills/notion-format/) | Execution | Auto-detect content type and format rich Notion documents |
 | [oss-code-analysis](skills/oss-code-analysis/) | Execution | Analyze OSS repos at the code level (compare or deep-dive mode) |
-| [pr-review-ste](skills/pr-review-ste/) | Execution | Review PRs at a chosen level and post P0–P3 findings as STE-style Korean comments, with optional fixes |
+| [pr-review-ste](skills/pr-review-ste/) | Execution | Review PRs at a chosen level and post P0–P3 findings as STE-style comments in the repository's language (Korean or English), with optional fixes |
 | [ux-sentinel](skills/ux-sentinel/) | System | Auto-detect recurring UX concepts and persist to Notion DB |
 
 ### Install a skill

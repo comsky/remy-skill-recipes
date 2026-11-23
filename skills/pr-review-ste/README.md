@@ -1,8 +1,8 @@
 # PR Review STE
 
 Review one or more GitHub pull requests at a chosen level, verify each finding
-on the PR head, and post one review per PR. Comments follow STE-style Korean
-with P0–P3 priority marks. With `--fix`, fix the findings on the PR branch and
+on the PR head, and post one review per PR. Comments follow STE style in the
+repository's language (Korean or English) with P0–P3 priority marks. With `--fix`, fix the findings on the PR branch and
 post the outcome of each one.
 
 This skill:
@@ -11,6 +11,7 @@ This skill:
 - Sets scope and count per level (`low` · `medium` · `high` · `xhigh` · `max`); ADR PRs default to `xhigh`
 - Takes candidates from `/code-review` when the host provides it; otherwise runs its own angle table
 - Keeps only findings with a concrete failure scenario
+- Writes comments in the repository's language: `--lang`, then a rule file, then recent PRs and review comments decide. Korean → Korean; any other language → English
 - Cross-checks PRs that form two sides of one contract
 - Derives the review event from the priorities: P0 → `REQUEST_CHANGES`, only P3 → `APPROVE`, otherwise `COMMENT`
 - Leaves review method, tool names, and level out of posted text
@@ -29,10 +30,10 @@ verdict consistent across PRs.
 
 ## Procedure (7 Steps)
 
-1. **Confirm Targets** — read state, head SHA, and ADR status; fetch the diff and head ref
+1. **Confirm Targets** — read state, head SHA, and ADR status; choose the comment language; fetch the diff and head ref
 2. **Review at the Chosen Level** — take candidates from `/code-review` (or the level table's angles); verify each on the PR head
 3. **Assign Priority** — P0–P3 without inflation or deflation
-4. **Write in STE-Style Korean** — one fact per sentence, 합니다체, no method talk
+4. **Write in STE Style** — one fact per sentence, in the chosen language (Korean 합니다체 or plain English), no method talk
 5. **Post** — findings JSON → `post_review.py --dry-run` → post
 6. **Fix (`--fix` only)** — isolated worktree, checks, one commit, push, outcome comment
 7. **Final Report** — one table per run
@@ -42,6 +43,11 @@ verdict consistent across PRs.
 ## Posted Format
 
 Priority marks: 🚨 P0 차단 · ⚠️ P1 머지 전 수정 · 💡 P2 수정 권장 · 💬 P3 선택.
+In English: 🚨 P0 Blocking · ⚠️ P1 Fix before merge · 💡 P2 Fix recommended · 💬 P3 Optional.
+
+The examples below are Korean. An English repository gets the same layout with
+English labels and headers (`| Priority | Finding | Location |`). With no
+findings, the body is one line: `🎉🎉🎉 No findings. 🎉🎉🎉`.
 
 The review body is a count table, then one row per finding. A finding on a
 diff line gets an inline comment (`⚠️ **P1** …`); a finding outside the diff
@@ -84,6 +90,7 @@ fix commit link, then one row per finding.
 /pr-review-ste 3338 3339
 /pr-review-ste xhigh 3338
 /pr-review-ste --fix 3338
+/pr-review-ste --lang en 3338
 ```
 
 Requires an authenticated `gh` and Python 3.9+.
@@ -94,4 +101,5 @@ Requires an authenticated `gh` and Python 3.9+.
 
 - [SKILL.md](SKILL.md) — Main skill
 - [scripts/post_review.py](scripts/post_review.py) — Builds and posts the review or the fix-outcome comment
+- [scripts/detect_lang.py](scripts/detect_lang.py) — Detects the comment language (`ko` or `en`) from recent PRs and review comments
 - [references/finder-brief.md](references/finder-brief.md) — Sub-agent brief for large or multi-PR runs

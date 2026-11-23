@@ -9,6 +9,10 @@ requests changes or approves.
 With --fix-report, post one PR comment instead: each finding's `outcome`
 (fixed | skipped | no_change_needed) and the fix commit `fix_sha`, which must
 already be the PR head (see SKILL.md Step 6).
+
+Fixed text (labels, table headers) comes from TEXT in the findings JSON's
+top-level `lang` (ko | en); the findings themselves must already be written in
+that language (see SKILL.md Step 4).
 """
 from __future__ import annotations
 
@@ -21,8 +25,31 @@ from urllib.parse import quote
 
 PRIORITIES = ("P0", "P1", "P2", "P3")
 MARK = {"P0": "🚨", "P1": "⚠️", "P2": "💡", "P3": "💬"}
-LABEL = {"P0": "차단", "P1": "머지 전 수정", "P2": "수정 권장", "P3": "선택"}
-OUTCOME = {"fixed": "✅ 수정", "skipped": "⏭️ 건너뜀", "no_change_needed": "➖ 변경 불필요"}
+OUTCOMES = ("fixed", "skipped", "no_change_needed")
+TEXT = {
+    "ko": {
+        "label": {"P0": "차단", "P1": "머지 전 수정", "P2": "수정 권장", "P3": "선택"},
+        "outcome": {"fixed": "✅ 수정", "skipped": "⏭️ 건너뜀", "no_change_needed": "➖ 변경 불필요"},
+        "count_head": "| 우선순위 | 건수 |",
+        "finding_head": "| 우선순위 | 지적 | 위치 |",
+        "outcome_count_head": "| 결과 | 건수 |",
+        "outcome_head": "| 결과 | 우선순위 | 지적 | 위치 | 사유 |",
+        "fix_commit": "수정 커밋",
+        "no_findings": "🎉🎉🎉 지적할 항목이 없습니다. 🎉🎉🎉",
+        "own_p0": "> P0 가 있으나 본인 PR 이라 변경 요청 대신 댓글로 남깁니다.",
+    },
+    "en": {
+        "label": {"P0": "Blocking", "P1": "Fix before merge", "P2": "Fix recommended", "P3": "Optional"},
+        "outcome": {"fixed": "✅ Fixed", "skipped": "⏭️ Skipped", "no_change_needed": "➖ No change needed"},
+        "count_head": "| Priority | Count |",
+        "finding_head": "| Priority | Finding | Location |",
+        "outcome_count_head": "| Outcome | Count |",
+        "outcome_head": "| Outcome | Priority | Finding | Location | Reason |",
+        "fix_commit": "Fix commit",
+        "no_findings": "🎉🎉🎉 No findings. 🎉🎉🎉",
+        "own_p0": "> This PR has a P0. It is your own PR, so this review is a comment, not a change request.",
+    },
+}
 
 
 def gh(*args: str, stdin: str | None = None) -> str:
@@ -55,9 +82,11 @@ def diff_right_lines(diff: str) -> dict[str, set[int]]:
 
 
 def validate(data: dict) -> list[dict]:
-    for key in ("repo", "number", "head_sha", "findings"):
+    for key in ("repo", "number", "head_sha", "lang", "findings"):
         if key not in data:
             sys.exit(f"findings JSON is missing '{key}'")
+    if not isinstance(data["lang"], str) or data["lang"] not in TEXT:
+        sys.exit(f"lang is {data['lang']!r}; use one of {tuple(TEXT)}")
     findings = data["findings"]
     for i, f in enumerate(findings):
         missing = [k for k in ("priority", "file", "line", "title", "body") if k not in f]
@@ -77,8 +106,8 @@ def validate_outcomes(data: dict) -> None:
     if not findings:
         sys.exit("no findings: there is no outcome to report")
     for i, f in enumerate(findings):
-        if f.get("outcome") not in OUTCOME:
-            sys.exit(f"finding {i} needs outcome in {tuple(OUTCOME)}")
+        if f.get("outcome") not in OUTCOMES:
+            sys.exit(f"finding {i} needs outcome in {OUTCOMES}")
         if f["outcome"] != "fixed" and not (isinstance(f.get("reason"), str) and f["reason"].strip()):
             sys.exit(f"finding {i} is {f['outcome']}; give it a reason")
     if any(f["outcome"] == "fixed" for f in findings) and not data.get("fix_sha"):
@@ -91,26 +120,28 @@ def cell(text: str) -> str:
 
 
 def build_fix_report(data: dict, findings: list[dict]) -> str:
+    t = TEXT[data["lang"]]
     blob = f"https://github.com/{data['repo']}/blob/{data['head_sha']}"
     rows = [
         f"| {label} | {n} |"
-        for key, label in OUTCOME.items()
+        for key, label in t["outcome"].items()
         if (n := sum(f["outcome"] == key for f in findings))
     ]
-    lines = ["| 결과 | 건수 |", "| --- | ---: |", *rows, ""]
+    lines = [t["outcome_count_head"], "| --- | ---: |", *rows, ""]
     if sha := data.get("fix_sha"):
-        lines.append(f"수정 커밋: [`{sha[:9]}`](https://github.com/{data['repo']}/commit/{sha})")
-    lines += ["", "| 결과 | 우선순위 | 지적 | 위치 | 사유 |", "| --- | --- | --- | --- | --- |"]
+        lines.append(f"{t['fix_commit']}: [`{sha[:9]}`](https://github.com/{data['repo']}/commit/{sha})")
+    lines += ["", t["outcome_head"], "| --- | --- | --- | --- | --- |"]
     for f in findings:
         where = f"[`{f['file'].rsplit('/', 1)[-1]}:{f['line']}`]({blob}/{quote(f['file'])}#L{f['line']})"
         reason = cell(f["reason"]) if f["outcome"] != "fixed" else ""
         lines.append(
-            f"| {OUTCOME[f['outcome']]} | {MARK[f['priority']]} {f['priority']} | {cell(f['title'])} | {where} | {reason} |"
+            f"| {t['outcome'][f['outcome']]} | {MARK[f['priority']]} {f['priority']} | {cell(f['title'])} | {where} | {reason} |"
         )
     return "\n".join(lines).rstrip() + "\n"
 
 
 def build(data: dict, findings: list[dict], diff: str, own_pr: bool) -> dict:
+    t = TEXT[data["lang"]]
     anchorable = diff_right_lines(diff)
     inline, outside = [], []
     for f in findings:
@@ -119,11 +150,11 @@ def build(data: dict, findings: list[dict], diff: str, own_pr: bool) -> dict:
     has_p0 = any(f["priority"] == "P0" for f in findings)
     groups = {p: [f for f in findings if f["priority"] == p] for p in PRIORITIES}
     # The body states findings only: no skill, command, level or method names.
-    rows = [f"| {MARK[p]} {p} {LABEL[p]} | {len(g)} |" for p, g in groups.items() if g]
-    lines = ["| 우선순위 | 건수 |", "| --- | ---: |", *rows] if rows else ["🎉🎉🎉 지적할 항목이 없습니다. 🎉🎉🎉"]
+    rows = [f"| {MARK[p]} {p} {t['label'][p]} | {len(g)} |" for p, g in groups.items() if g]
+    lines = [t["count_head"], "| --- | ---: |", *rows] if rows else [t["no_findings"]]
     blob = f"https://github.com/{data['repo']}/blob/{data['head_sha']}"
     if findings:
-        lines += ["", "| 우선순위 | 지적 | 위치 |", "| --- | --- | --- |"]
+        lines += ["", t["finding_head"], "| --- | --- | --- |"]
     details = []
     for f in findings:  # validate() sorted these by priority
         where = f"[`{f['file'].rsplit('/', 1)[-1]}:{f['line']}`]({blob}/{quote(f['file'])}#L{f['line']})"
@@ -138,7 +169,7 @@ def build(data: dict, findings: list[dict], diff: str, own_pr: bool) -> dict:
         event = "COMMENT"
     if has_p0 and own_pr:
         event = "COMMENT"
-        lines += ["", "> P0 가 있으나 본인 PR 이라 변경 요청 대신 댓글로 남깁니다."]
+        lines += ["", t["own_p0"]]
 
     return {
         "commit_id": data["head_sha"],
