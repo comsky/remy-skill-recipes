@@ -120,7 +120,7 @@ def build(data: dict, findings: list[dict], diff: str, own_pr: bool) -> dict:
     groups = {p: [f for f in findings if f["priority"] == p] for p in PRIORITIES}
     # The body states findings only: no skill, command, level or method names.
     rows = [f"| {MARK[p]} {p} {LABEL[p]} | {len(g)} |" for p, g in groups.items() if g]
-    lines = ["| 우선순위 | 건수 |", "| --- | ---: |", *rows] if rows else ["지적할 항목이 없습니다."]
+    lines = ["| 우선순위 | 건수 |", "| --- | ---: |", *rows] if rows else ["🎉🎉🎉 지적할 항목이 없습니다. 🎉🎉🎉"]
     blob = f"https://github.com/{data['repo']}/blob/{data['head_sha']}"
     if findings:
         lines += ["", "| 우선순위 | 지적 | 위치 |", "| --- | --- | --- |"]
