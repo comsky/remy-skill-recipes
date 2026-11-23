@@ -157,9 +157,12 @@ Choose the comment language once per repository, in this order:
 python3 -I <skill-dir>/scripts/detect_lang.py <owner/repo>
 ```
 
-The script prints `ko` or `en`, and the vote counts on stderr. Any language
-other than Korean counts as `en`. When the counts are close (for example,
-`ko 26, en 32`), keep the result and note the counts in the final report.
+The script prints `ko` or `en`. On stderr it prints the vote counts and what
+decided: recent PR bodies and review comments (titles and this skill's earlier
+comments are left out), the README when the votes tie, or the `en` default when
+nothing is readable. Any language other than Korean counts as `en`. When the
+counts are close (for example, `ko 26, en 32`) or the default decided, keep the
+result and note it in the final report.
 
 Fetch the diff and the head code.
 
@@ -403,7 +406,7 @@ Report to the user in the table from Output Format item 3.
 
 ## Guardrails
 
-- Never post a finding without a concrete failure scenario on the PR head. At `max`, mark a low-confidence finding 「확인 필요」 instead of presenting it as verified.
+- Never post a finding without a concrete failure scenario on the PR head. At `max`, mark a low-confidence finding 「확인 필요」 (`ko`) or "Needs confirmation" (`en`) instead of presenting it as verified.
 - Never post sub-agent findings (P0–P2) or `/code-review` findings without a `CONFIRMED` verdict without verifying them in the code yourself.
 - Never let `/code-review` post or fix: no `--comment`, no `--fix`, no `--max-findings`.
 - Never pick the review event by hand; `post_review.py` derives it from the priorities.
@@ -512,6 +515,7 @@ reviews in English", so its review is in English.
 4. A sub-agent's P2 on #513 does not reproduce on the head and is dropped.
 5. Reviews posted: #512 `REQUEST_CHANGES` (P0 1, P2 2), #513 `REQUEST_CHANGES` (P0 1, P3 1).
 6. Fix on #512: worktree from `refs/remotes/pr/512`; `limit` omitted when unset; regression test added and shown to fail without the fix; lint and tests pass; commit `fix(dashboard): omit unset widget limit on save`; push; head confirmed; outcome comment posted (✅ 수정 2 · ⏭️ 건너뜀 1).
+7. Fix on #513: a fork without maintainer edits → 「수정 안 함(포크, 쓰기 불가)」.
 
 The #513 review body, in English:
 
@@ -526,7 +530,6 @@ The #513 review body, in English:
 | 🚨 P0 | The validator rejects `limit: null`, which the client sends when the limit is unset | [`widget.schema.ts:42`](…#L42) |
 | 💬 P3 | `parseLimit` repeats the check in `validateRange` | [`limits.ts:17`](…#L17) |
 ```
-7. Fix on #513: a fork without maintainer edits → 「수정 안 함(포크, 쓰기 불가)」.
 
 Final report:
 

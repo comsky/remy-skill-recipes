@@ -85,7 +85,7 @@ def validate(data: dict) -> list[dict]:
     for key in ("repo", "number", "head_sha", "lang", "findings"):
         if key not in data:
             sys.exit(f"findings JSON is missing '{key}'")
-    if data["lang"] not in TEXT:
+    if not isinstance(data["lang"], str) or data["lang"] not in TEXT:
         sys.exit(f"lang is {data['lang']!r}; use one of {tuple(TEXT)}")
     findings = data["findings"]
     for i, f in enumerate(findings):
