@@ -272,7 +272,7 @@ Write one findings JSON per PR.
 
 - `line` is the line number on the PR head.
 - `title` is the one-sentence summary; `body` is the detail below it, in the inline comment template's order (조건 · 재현 · 결과, then 제안). Both in 합니다체, whichever source found the finding. The script adds the `💡 **Pn**` mark.
-- Keep findings on lines outside the diff as they are. The script moves them into the body under their priority group, with detail.
+- Keep findings on lines outside the diff as they are. The script gives them a row in the body table like any other finding and puts their detail below the table.
 
 Dry-run first, then post.
 

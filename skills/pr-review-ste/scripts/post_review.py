@@ -67,15 +67,19 @@ def validate(data: dict) -> list[dict]:
             sys.exit(f"finding {i} has priority {f['priority']!r}; use one of {PRIORITIES}")
         if not isinstance(f["line"], int) or f["line"] < 1:
             sys.exit(f"finding {i} needs a positive integer line")
+        if not isinstance(f["title"], str) or not f["title"].strip() or not isinstance(f["body"], str):
+            sys.exit(f"finding {i} needs a non-empty string title and a string body")
     return sorted(findings, key=lambda f: PRIORITIES.index(f["priority"]))
 
 
 def validate_outcomes(data: dict) -> None:
     findings = data["findings"]  # file order, so the index matches the JSON
+    if not findings:
+        sys.exit("no findings: there is no outcome to report")
     for i, f in enumerate(findings):
         if f.get("outcome") not in OUTCOME:
             sys.exit(f"finding {i} needs outcome in {tuple(OUTCOME)}")
-        if f["outcome"] != "fixed" and not f.get("reason"):
+        if f["outcome"] != "fixed" and not (isinstance(f.get("reason"), str) and f["reason"].strip()):
             sys.exit(f"finding {i} is {f['outcome']}; give it a reason")
     if any(f["outcome"] == "fixed" for f in findings) and not data.get("fix_sha"):
         sys.exit("a fixed finding needs top-level fix_sha")
@@ -83,7 +87,7 @@ def validate_outcomes(data: dict) -> None:
 
 def cell(text: str) -> str:
     """Keep free text inside one table cell."""
-    return " ".join(text.split()).replace("|", "\\|")
+    return re.sub(r"\s*\n\s*", " ", text.strip()).replace("|", "\\|")
 
 
 def build_fix_report(data: dict, findings: list[dict]) -> str:
