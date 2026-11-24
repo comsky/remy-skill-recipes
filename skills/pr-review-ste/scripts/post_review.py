@@ -13,8 +13,8 @@ With --fix-report, post the fix outcomes instead: each finding's `outcome`
 (fixed | skipped | no_change_needed) and the fix commit `fix_sha`, which must
 already be the PR head (see SKILL.md Step 6). A P3-only PR that is not the
 user's gets them as an APPROVE review on that head, unless the base branch does
-not count the last pusher's approval and the user pushed the fix; any other PR
-gets them as a PR comment.
+not count the last pusher's approval and the user pushed the fix, or the user
+already approved the PR; any other PR gets them as a PR comment.
 
 Fixed text (labels, table headers) comes from TEXT in the findings JSON's
 top-level `lang` (ko | en); the findings themselves must already be written in
@@ -172,20 +172,32 @@ def post_review(repo: str, number: str, payload: dict) -> dict:
     return result
 
 
-def branch_rules(repo: str, base: str) -> dict[str, bool]:
-    """What the base branch's rulesets do to approvals; all False when they cannot be read."""
-    result = subprocess.run(
-        ["gh", "api", f"repos/{repo}/rules/branches/{quote(base, safe='')}", "--jq",
-         '[.[] | select(.type == "pull_request") | .parameters] | '
-         '{stale: (map(.dismiss_stale_reviews_on_push == true) | any), '
-         'last_push: (map(.require_last_push_approval == true) | any)}'],
-        capture_output=True, encoding="utf-8",
-    )
+def gh_read(path: str, jq: str) -> dict:
+    """A read that may be refused (no access, branch not protected): the jq result, or {}."""
+    result = subprocess.run(["gh", "api", path, "--jq", jq], capture_output=True, encoding="utf-8")
     try:
-        rules = json.loads(result.stdout) if result.returncode == 0 else {}
+        value = json.loads(result.stdout) if result.returncode == 0 else {}
     except json.JSONDecodeError:
-        rules = {}
-    return {"stale": rules.get("stale") is True, "last_push": rules.get("last_push") is True}
+        value = {}
+    return value if isinstance(value, dict) else {}
+
+
+def branch_rules(repo: str, base: str) -> dict[str, bool]:
+    """What the base branch's rulesets and classic protection do to approvals; a setting it cannot read counts as off."""
+    branch = quote(base, safe="")
+    rules = gh_read(
+        f"repos/{repo}/rules/branches/{branch}?per_page=100",
+        '[.[] | select(.type == "pull_request") | .parameters] | '
+        '{stale: (map(.dismiss_stale_reviews_on_push == true) | any), '
+        'last_push: (map(.require_last_push_approval == true) | any)}',
+    )
+    # Classic branch protection is not in the rules list. Reading it needs admin access; a refused read adds nothing.
+    classic = gh_read(
+        f"repos/{repo}/branches/{branch}/protection",
+        '(.required_pull_request_reviews // {}) | '
+        '{stale: (.dismiss_stale_reviews == true), last_push: (.require_last_push_approval == true)}',
+    )
+    return {key: rules.get(key) is True or classic.get(key) is True for key in ("stale", "last_push")}
 
 
 def approval_line(t: dict, repo: str, sha: str, has_findings: bool) -> str:
@@ -286,16 +298,22 @@ def main() -> None:
             )
         body = build_fix_report(data, findings)
         # A P3-only PR is approved here, on the head the fix left, so the push cannot lift the approval.
-        own_pr = pr["author"]["login"] == gh("api", "user", "--jq", ".login").strip()
+        viewer = gh("api", "user", "--jq", ".login").strip()
+        own_pr = pr["author"]["login"] == viewer
         only_p3 = all(f["priority"] == "P3" for f in findings)
         rules = branch_rules(repo, pr["baseRefName"]) if only_p3 and not own_pr else {"stale": False, "last_push": False}
+        # Step 5 approves when it ran without --defer-approval; a second approval of the same PR is not posted.
+        approved = only_p3 and not own_pr and bool(gh(
+            "api", "--paginate", f"repos/{repo}/pulls/{number}/reviews",
+            "--jq", f'.[] | select(.user.login == "{viewer}" and .state == "APPROVED") | .id',
+        ).strip())
         t = TEXT[data["lang"]]
-        approve = only_p3 and not own_pr and not (rules["last_push"] and data.get("fix_sha"))
+        approve = only_p3 and not own_pr and not approved and not (rules["last_push"] and data.get("fix_sha"))
         if approve:
             body = approval_line(t, repo, expected, True) + "\n\n" + body
             if rules["stale"]:
                 body += "\n" + t["stale_note"] + "\n"
-        elif only_p3 and not own_pr:  # the push was mine, and this repository does not count the last pusher's approval
+        elif only_p3 and not own_pr and not approved:  # I pushed, and this repository does not count the last pusher's approval
             body += "\n" + t["last_push_note"] + "\n"
         kind = "approval" if approve else "comment"
         if args.dry_run:

@@ -35,7 +35,7 @@ verdict consistent across PRs.
 3. **Assign Priority** — P0–P3 without inflation or deflation
 4. **Write in STE Style** — one fact per sentence, in the chosen language (Korean 합니다체 or plain English), no method talk
 5. **Post** — findings JSON → `post_review.py --dry-run` → post
-6. **Fix (`--fix` only)** — isolated worktree, checks, one commit, push, outcome comment
+6. **Fix (`--fix` only)** — isolated worktree, checks, one commit, push, outcome post
 7. **Final Report** — one table per run
 
 ---
@@ -47,7 +47,7 @@ In English: 🚨 P0 Blocking · ⚠️ P1 Fix before merge · 💡 P2 Fix recomm
 
 The examples below are Korean. An English repository gets the same layout with
 English labels and headers (`| Priority | Finding | Location |`). With no
-findings, the body is one line: `🎉🎉🎉 No findings. 🎉🎉🎉`. An approval names the
+findings, a review that does not approve has one line: `🎉🎉🎉 No findings. 🎉🎉🎉`. An approval names the
 reviewed commit as a linked short SHA: with no findings it is
 `🎉🎉🎉 Approved at <sha>. No findings. 🎉🎉🎉` (Korean:
 `🎉🎉🎉 <sha> 기준으로 지적할 항목이 없어 승인합니다. 🎉🎉🎉`), and with only P3 findings it
@@ -111,6 +111,6 @@ Requires an authenticated `gh` and Python 3.9+.
 ## Structure
 
 - [SKILL.md](SKILL.md) — Main skill
-- [scripts/post_review.py](scripts/post_review.py) — Builds and posts the review or the fix-outcome comment
+- [scripts/post_review.py](scripts/post_review.py) — Builds and posts the review or the fix-outcome post
 - [scripts/detect_lang.py](scripts/detect_lang.py) — Detects the comment language (`ko` or `en`) from recent PRs and review comments
 - [references/finder-brief.md](references/finder-brief.md) — Sub-agent brief for large or multi-PR runs

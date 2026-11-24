@@ -34,7 +34,7 @@ PR 마다 리뷰 하나를 게시합니다. 댓글은 저장소 언어(한국어
 3. **우선순위** — 부풀리거나 낮추지 않고 P0–P3 지정
 4. **STE 문체** — 한 문장에 한 사실, 정한 언어로(한국어 합니다체 또는 쉬운 영어), 방법 언급 없음
 5. **게시** — findings JSON → `post_review.py --dry-run` → 게시
-6. **수정 (`--fix` 만)** — 격리 워크트리, 검사, 커밋 하나, 푸시, 결과 댓글
+6. **수정 (`--fix` 만)** — 격리 워크트리, 검사, 커밋 하나, 푸시, 결과 게시물
 7. **최종 보고** — 실행마다 표 하나
 
 ---
@@ -45,7 +45,7 @@ PR 마다 리뷰 하나를 게시합니다. 댓글은 저장소 언어(한국어
 영어: 🚨 P0 Blocking · ⚠️ P1 Fix before merge · 💡 P2 Fix recommended · 💬 P3 Optional.
 
 아래 예시는 한국어입니다. 영어 저장소는 같은 모양에 영어 레이블과 머리글
-(`| Priority | Finding | Location |`)을 씁니다. 지적이 없으면 본문은
+(`| Priority | Finding | Location |`)을 씁니다. 지적이 없고 승인하지 않는 리뷰의 본문은
 `🎉🎉🎉 지적할 항목이 없습니다. 🎉🎉🎉`(영어: `🎉🎉🎉 No findings. 🎉🎉🎉`) 한 줄입니다.
 승인할 때는 리뷰한 커밋을 링크 걸린 짧은 SHA로 밝힙니다. 지적이 없으면
 `🎉🎉🎉 <sha> 기준으로 지적할 항목이 없어 승인합니다. 🎉🎉🎉`(영어:
@@ -107,6 +107,6 @@ push가 그 승인을 풀기 때문입니다. 리뷰는 댓글로 남기고, 결
 ## 구조
 
 - [SKILL.md](SKILL.md) — 메인 스킬
-- [scripts/post_review.py](scripts/post_review.py) — 리뷰 또는 수정 결과 댓글을 만들고 게시
+- [scripts/post_review.py](scripts/post_review.py) — 리뷰 또는 수정 결과 게시물을 만들고 게시
 - [scripts/detect_lang.py](scripts/detect_lang.py) — 최근 PR·리뷰 댓글로 댓글 언어(`ko` 또는 `en`) 감지
 - [references/finder-brief.md](references/finder-brief.md) — 큰 PR·여러 PR 용 서브 에이전트 브리프

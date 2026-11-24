@@ -95,7 +95,7 @@ merges, thread resolves, or force pushes.
 
 1. Per PR, one GitHub review:
    - Inline comments on lines inside the diff
-   - A body that starts with a count table (one `| 💡 P2 수정 권장 | 4 |` or `| 💡 P2 Fix recommended | 4 |` row per priority that has findings), then one table row per finding (priority, summary, PR-head line link); findings outside the diff carry their detail below the table, under their priority and link. With no findings, the body is one line (`🎉🎉🎉 지적할 항목이 없습니다. 🎉🎉🎉` or `🎉🎉🎉 No findings. 🎉🎉🎉`). An approval names the reviewed head commit as a short SHA linked to the commit, so a later push does not read as approved: with no findings, its one line is `🎉🎉🎉 <sha> 기준으로 지적할 항목이 없어 승인합니다. 🎉🎉🎉` or `🎉🎉🎉 Approved at <sha>. No findings. 🎉🎉🎉`; with only P3 findings, one line above the count table is `🎉🎉🎉 <sha> 기준으로 P3 제안만 있어 승인합니다. 🎉🎉🎉` or `🎉🎉🎉 Approved at <sha>. Only P3 suggestions remain. 🎉🎉🎉`. When a ruleset on the base branch dismisses stale approvals on push, the approval ends with `> 이 저장소는 새 커밋이 push되면 승인이 자동으로 풀립니다. 이후 커밋은 다시 리뷰해야 합니다.` or `> This repository dismisses approvals when new commits are pushed. Later commits need a new review.`
+   - A body that starts with a count table (one `| 💡 P2 수정 권장 | 4 |` or `| 💡 P2 Fix recommended | 4 |` row per priority that has findings), then one table row per finding (priority, summary, PR-head line link); findings outside the diff carry their detail below the table, under their priority and link. With no findings, a review that does not approve has a one-line body (`🎉🎉🎉 지적할 항목이 없습니다. 🎉🎉🎉` or `🎉🎉🎉 No findings. 🎉🎉🎉`). An approval names the reviewed head commit as a short SHA linked to the commit, so a later push does not read as approved: with no findings, its one line is `🎉🎉🎉 <sha> 기준으로 지적할 항목이 없어 승인합니다. 🎉🎉🎉` or `🎉🎉🎉 Approved at <sha>. No findings. 🎉🎉🎉`; with only P3 findings, one line above the count table is `🎉🎉🎉 <sha> 기준으로 P3 제안만 있어 승인합니다. 🎉🎉🎉` or `🎉🎉🎉 Approved at <sha>. Only P3 suggestions remain. 🎉🎉🎉`. When a ruleset on the base branch dismisses stale approvals on push, the approval ends with `> 이 저장소는 새 커밋이 push되면 승인이 자동으로 풀립니다. 이후 커밋은 다시 리뷰해야 합니다.` or `> This repository dismisses approvals when new commits are pushed. Later commits need a new review.`
    - Event: `REQUEST_CHANGES` (any P0) · `APPROVE` (only P3, or none) · `COMMENT` (otherwise; also for the user's own PR). With `--fix`, a review with only P3 findings is `COMMENT` and ends with `> P3 제안만 있어, 제안을 반영한 뒤 그 커밋 기준으로 승인합니다.` or `> Only P3 suggestions remain. The approval follows on the commit that applies them.`: the fix push would lift an approval given now.
 2. Per PR with `--fix`: one fix commit on the PR branch and one outcome post that starts with a count table (one `| ✅ 수정 | 2 |` row per outcome that occurs) and then has one table row per finding with its outcome (`✅ 수정` · `⏭️ 건너뜀` · `➖ 변경 불필요`, or `✅ Fixed` · `⏭️ Skipped` · `➖ No change needed`) with the fix commit link. For a P3-only PR that is not the user's, the post is an `APPROVE` review on the PR head after the fix, with the approval line of item 1 naming that head above the table (and the stale-dismissal note when it applies). If the base branch does not count the last pusher's approval (`require_last_push_approval`) and the user pushed the fix, it is a PR comment ending with `> 이 저장소는 마지막으로 push한 사람의 승인을 인정하지 않습니다. 수정 커밋은 다른 리뷰어의 승인이 필요합니다.` or `> This repository does not count an approval from the last pusher. The fix commit needs another reviewer's approval.` Every other PR gets a PR comment.
 3. To the user, one table: PR link (review URL), applied level (and whether ADR raised it to `xhigh`), comment language and its source (argument, rule file, or detection), state (for an approval, as re-read in Step 7), counts per priority, one-line key point. Skipped PRs with the reason. One or two lines on unposted candidates where the call was close. With `--fix`: fix commit, counts per outcome, checks run and their result, PR author when the PR is not the user's, and one line per skipped finding.
@@ -381,17 +381,17 @@ git -C <checkout> worktree add --detach <worktrees>/<repo>-pr<N>-fix refs/remote
 6.3 Check, commit, push.
 
 - Run the checks the repository's rule files require on changed files (lint, format, types, related tests). In a checkout without hooks installed, run the hooks by hand.
-- If a check fails, fix the cause. If you cannot, do not push: mark every finding of that PR `skipped` (reason: check failed) and post the outcome comment.
+- If a check fails, fix the cause. If you cannot, do not push: mark every finding of that PR `skipped` (reason: check failed) and run Step 6.4 on the unchanged head.
 - One commit per PR, following the repository's Conventional Commits rules and commit-message language. The subject states what the code fix does, never 「리뷰 반영」 or 「P2 수정」. Do not skip hooks (`--no-verify` is forbidden).
-- Re-read the PR head right before pushing. Do not push if it differs from the reviewed head.
+- Re-read the PR head right before pushing. Do not push if it differs from the reviewed head. Post nothing, and report 「승인 보류(새 커밋)」 for a P3-only PR whose approval Step 5 deferred.
 
 ```bash
 git -C <worktree> push <head-remote> HEAD:refs/heads/<headRefName>
 ```
 
 - `<head-remote>` is `origin` when `isCrossRepository` is false. For a fork PR it is `https://github.com/<headRepositoryOwner.login>/<headRepository.name>.git`. Never push a fork PR's branch to `origin`: that writes a same-named branch in the base repository and leaves the PR unchanged.
-- Never force push. If the push is rejected, stop and report.
-- When you stop without a push, keep the worktree and report its path. The unpushed commit exists only there.
+- Never force push. If the push is rejected, do not retry: mark every finding `skipped` (reason: the push was rejected) and run Step 6.4 on the unchanged head, so a deferred approval is still posted.
+- When you stop without a push for any other reason, do the same unless the head moved. Keep the worktree and report its path. The unpushed commit exists only there.
 - After the push, wait until the PR's `headRefOid` equals the new commit; GitHub can lag.
 
 6.4 Post the outcomes.
@@ -405,7 +405,7 @@ python3 -I <skill-dir>/scripts/post_review.py <findings.json> --fix-report --dry
 python3 -I <skill-dir>/scripts/post_review.py <findings.json> --fix-report
 ```
 
-- The script checks that the PR head is `fix_sha` (or `head_sha` if nothing was fixed) and posts the outcomes once. For a P3-only PR that is not the user's, it posts them as an `APPROVE` review on that head, whatever each P3's outcome. When the base branch does not count the last pusher's approval and a fix was pushed, it posts them as a PR comment with the note that another reviewer must approve. Any other PR gets a PR comment.
+- The script checks that the PR head is `fix_sha` (or `head_sha` if nothing was fixed) and posts the outcomes once. For a P3-only PR that is not the user's, it posts them as an `APPROVE` review on that head, whatever each P3's outcome. When the base branch does not count the last pusher's approval and a fix was pushed, it posts them as a PR comment with the note that another reviewer must approve. It reads that setting from rulesets and, when the user has admin access, from classic branch protection. When the user already has an `APPROVED` review on the PR, it posts a PR comment instead of a second approval. Any other PR gets a PR comment.
 - Run `--fix-report` even when every outcome is `skipped` or `no_change_needed`: for a P3-only PR it is the approval that Step 5 deferred.
 - `reason` follows Step 4, in the same `lang`. No method or tool names.
 - If the host provides a findings-report tool, call it again with the same findings and each `outcome`.
