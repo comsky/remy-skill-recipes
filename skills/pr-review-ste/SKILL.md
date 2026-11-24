@@ -98,7 +98,7 @@ merges, thread resolves, or force pushes.
    - A body that starts with a count table (one `| 💡 P2 수정 권장 | 4 |` or `| 💡 P2 Fix recommended | 4 |` row per priority that has findings), then one table row per finding (priority, summary, PR-head line link); findings outside the diff carry their detail below the table, under their priority and link. With no findings, the body is one line (`🎉🎉🎉 지적할 항목이 없습니다. 🎉🎉🎉` or `🎉🎉🎉 No findings. 🎉🎉🎉`). An approval names the reviewed head commit as a short SHA linked to the commit, so a later push does not read as approved: with no findings, its one line is `🎉🎉🎉 <sha> 기준으로 지적할 항목이 없어 승인합니다. 🎉🎉🎉` or `🎉🎉🎉 Approved at <sha>. No findings. 🎉🎉🎉`; with only P3 findings, one line above the count table is `🎉🎉🎉 <sha> 기준으로 P3 제안만 있어 승인합니다. 🎉🎉🎉` or `🎉🎉🎉 Approved at <sha>. Only P3 suggestions remain. 🎉🎉🎉`. When a ruleset on the base branch dismisses stale approvals on push, the approval ends with `> 이 저장소는 새 커밋이 push되면 승인이 자동으로 풀립니다. 이후 커밋은 다시 리뷰해야 합니다.` or `> This repository dismisses approvals when new commits are pushed. Later commits need a new review.`
    - Event: `REQUEST_CHANGES` (any P0) · `APPROVE` (only P3, or none) · `COMMENT` (otherwise; also for the user's own PR). With `--fix`, a review with only P3 findings is `COMMENT` and ends with `> P3 제안만 있어, 제안을 반영한 뒤 그 커밋 기준으로 승인합니다.` or `> Only P3 suggestions remain. The approval follows on the commit that applies them.`: the fix push would lift an approval given now.
 2. Per PR with `--fix`: one fix commit on the PR branch and one outcome post that starts with a count table (one `| ✅ 수정 | 2 |` row per outcome that occurs) and then has one table row per finding with its outcome (`✅ 수정` · `⏭️ 건너뜀` · `➖ 변경 불필요`, or `✅ Fixed` · `⏭️ Skipped` · `➖ No change needed`) with the fix commit link. For a P3-only PR that is not the user's, the post is an `APPROVE` review on the PR head after the fix, with the approval line of item 1 naming that head above the table (and the stale-dismissal note when it applies). If the base branch does not count the last pusher's approval (`require_last_push_approval`) and the user pushed the fix, it is a PR comment ending with `> 이 저장소는 마지막으로 push한 사람의 승인을 인정하지 않습니다. 수정 커밋은 다른 리뷰어의 승인이 필요합니다.` or `> This repository does not count an approval from the last pusher. The fix commit needs another reviewer's approval.` Every other PR gets a PR comment.
-3. To the user, one table: PR link (review URL), applied level (and whether ADR raised it to `xhigh`), comment language and its source (argument, rule file, or detection), state, counts per priority, one-line key point. Skipped PRs with the reason. One or two lines on unposted candidates where the call was close. With `--fix`: fix commit, counts per outcome, checks run and their result, PR author when the PR is not the user's, and one line per skipped finding.
+3. To the user, one table: PR link (review URL), applied level (and whether ADR raised it to `xhigh`), comment language and its source (argument, rule file, or detection), state (for an approval, as re-read in Step 7), counts per priority, one-line key point. Skipped PRs with the reason. One or two lines on unposted candidates where the call was close. With `--fix`: fix commit, counts per outcome, checks run and their result, PR author when the PR is not the user's, and one line per skipped finding.
 
 All posted text uses one language per repository: Korean (`ko`) or English
 (`en`), chosen in Step 1. The script writes the fixed labels and table headers
@@ -340,7 +340,11 @@ derives the event (P0 → `REQUEST_CHANGES`; only P3 or none → `APPROVE`;
 otherwise `COMMENT`; on the user's own PR both become `COMMENT`, and a P0 is
 noted in the body), names the reviewed head in an approval and adds the
 stale-dismissal note when the base branch's rulesets say so (a ruleset it
-cannot read adds no note), and posts with `gh api`.
+cannot read adds no note), and posts with `gh api`. It then compares the
+review state GitHub returns with the event it sent (`APPROVE` → `APPROVED`,
+`REQUEST_CHANGES` → `CHANGES_REQUESTED`, `COMMENT` → `COMMENTED`) and stops on a
+mismatch, printing the review id and URL. Report a mismatch as it is; never post
+the review again to get the event.
 
 ### Step 6 — Fix (`--fix` only)
 
@@ -408,6 +412,16 @@ python3 -I <skill-dir>/scripts/post_review.py <findings.json> --fix-report
 - Remove the worktree only after confirming the commit is the PR head.
 
 ### Step 7 — Final Report
+
+Right before reporting, re-read the state of every approval posted in this run,
+from the review id the script printed:
+
+```bash
+gh api repos/<owner/repo>/pulls/<N>/reviews/<review-id> --jq .state
+```
+
+- `APPROVED`: report the state as 「승인」 or "Approved".
+- `DISMISSED`: report 「승인 풀림(새 push)」 or "Approval dismissed (new push)", with the PR's current head. Do not approve again; the new commits have not been reviewed.
 
 Report to the user in the table from Output Format item 3.
 

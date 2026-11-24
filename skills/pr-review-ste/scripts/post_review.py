@@ -156,6 +156,22 @@ def build_fix_report(data: dict, findings: list[dict]) -> str:
     return "\n".join(lines).rstrip() + "\n"
 
 
+STATE_OF = {"APPROVE": "APPROVED", "REQUEST_CHANGES": "CHANGES_REQUESTED", "COMMENT": "COMMENTED"}
+
+
+def post_review(repo: str, number: str, payload: dict) -> dict:
+    """Post a review and stop unless GitHub recorded the event that was sent."""
+    result = json.loads(
+        gh("api", "-X", "POST", f"repos/{repo}/pulls/{number}/reviews", "--input", "-", stdin=json.dumps(payload))
+    )
+    if result.get("state") != STATE_OF[payload["event"]]:
+        sys.exit(
+            f"stop: {repo}#{number} review {result.get('id')} was sent as {payload['event']} "
+            f"but GitHub recorded {result.get('state')!r}: {result.get('html_url')}"
+        )
+    return result
+
+
 def branch_rules(repo: str, base: str) -> dict[str, bool]:
     """What the base branch's rulesets do to approvals; all False when they cannot be read."""
     result = subprocess.run(
@@ -287,16 +303,15 @@ def main() -> None:
             print(f"{repo}#{number}: fix report as {kind} (dry run)", file=sys.stderr)
             return
         if approve:
-            result = json.loads(
-                gh("api", "-X", "POST", f"repos/{repo}/pulls/{number}/reviews", "--input", "-",
-                   stdin=json.dumps({"commit_id": expected, "event": "APPROVE", "body": body}))
-            )
+            result = post_review(repo, number, {"commit_id": expected, "event": "APPROVE", "body": body})
+            print(f"{repo}#{number}: fix report as approval, review {result.get('id')}")
+            print(f"{result.get('state')} {result.get('html_url')}")
         else:
             result = json.loads(
                 gh("api", "-X", "POST", f"repos/{repo}/issues/{number}/comments", "--input", "-",
                    stdin=json.dumps({"body": body}))
             )
-        print(f"{repo}#{number}: fix report as {kind} {result.get('state', '')} {result.get('html_url')}")
+            print(f"{repo}#{number}: fix report as comment {result.get('html_url')}")
         return
     if pr["headRefOid"] != data["head_sha"]:
         sys.exit(
@@ -317,11 +332,8 @@ def main() -> None:
         print(json.dumps(payload, ensure_ascii=False, indent=2))
         print(summary, "(dry run)", file=sys.stderr)
         return
-    result = json.loads(
-        gh("api", "-X", "POST", f"repos/{repo}/pulls/{number}/reviews", "--input", "-",
-           stdin=json.dumps(payload))
-    )
-    print(summary)
+    result = post_review(repo, number, payload)
+    print(f"{summary}, review {result.get('id')}")
     print(f"{result.get('state')} {result.get('html_url')}")
 
 
