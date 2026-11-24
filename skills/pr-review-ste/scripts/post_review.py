@@ -6,9 +6,15 @@ into the review body. Any P0 makes the review REQUEST_CHANGES; findings that are
 all P3 (or none) make it APPROVE; anything else is COMMENT. An own PR never
 requests changes or approves.
 
-With --fix-report, post one PR comment instead: each finding's `outcome`
+With --defer-approval (the skill's --fix), a review that would approve with P3
+findings is a COMMENT instead: the fix push would lift an approval given now.
+
+With --fix-report, post the fix outcomes instead: each finding's `outcome`
 (fixed | skipped | no_change_needed) and the fix commit `fix_sha`, which must
-already be the PR head (see SKILL.md Step 6).
+already be the PR head (see SKILL.md Step 6). A P3-only PR that is not the
+user's gets them as an APPROVE review on that head, unless the base branch does
+not count the last pusher's approval and the user pushed the fix, or the user
+already approved the PR; any other PR gets them as a PR comment.
 
 Fixed text (labels, table headers) comes from TEXT in the findings JSON's
 top-level `lang` (ko | en); the findings themselves must already be written in
@@ -36,7 +42,11 @@ TEXT = {
         "outcome_head": "| 결과 | 우선순위 | 지적 | 위치 | 사유 |",
         "fix_commit": "수정 커밋",
         "no_findings": "🎉🎉🎉 지적할 항목이 없습니다. 🎉🎉🎉",
-        "p3_approve": "🎉🎉🎉 P3 제안만 있어 승인합니다. 🎉🎉🎉",
+        "approve": "🎉🎉🎉 {sha} 기준으로 지적할 항목이 없어 승인합니다. 🎉🎉🎉",
+        "p3_approve": "🎉🎉🎉 {sha} 기준으로 P3 제안만 있어 승인합니다. 🎉🎉🎉",
+        "stale_note": "> 이 저장소는 새 커밋이 push되면 승인이 자동으로 풀립니다. 이후 커밋은 다시 리뷰해야 합니다.",
+        "approve_later": "> P3 제안만 있어, 제안을 반영한 뒤 그 커밋 기준으로 승인합니다.",
+        "last_push_note": "> 이 저장소는 마지막으로 push한 사람의 승인을 인정하지 않습니다. 수정 커밋은 다른 리뷰어의 승인이 필요합니다.",
         "own_p0": "> P0 가 있으나 본인 PR 이라 변경 요청 대신 댓글로 남깁니다.",
     },
     "en": {
@@ -48,7 +58,11 @@ TEXT = {
         "outcome_head": "| Outcome | Priority | Finding | Location | Reason |",
         "fix_commit": "Fix commit",
         "no_findings": "🎉🎉🎉 No findings. 🎉🎉🎉",
-        "p3_approve": "🎉🎉🎉 Approved. Only P3 suggestions remain. 🎉🎉🎉",
+        "approve": "🎉🎉🎉 Approved at {sha}. No findings. 🎉🎉🎉",
+        "p3_approve": "🎉🎉🎉 Approved at {sha}. Only P3 suggestions remain. 🎉🎉🎉",
+        "stale_note": "> This repository dismisses approvals when new commits are pushed. Later commits need a new review.",
+        "approve_later": "> Only P3 suggestions remain. The approval follows on the commit that applies them.",
+        "last_push_note": "> This repository does not count an approval from the last pusher. The fix commit needs another reviewer's approval.",
         "own_p0": "> This PR has a P0. It is your own PR, so this review is a comment, not a change request.",
     },
 }
@@ -142,7 +156,60 @@ def build_fix_report(data: dict, findings: list[dict]) -> str:
     return "\n".join(lines).rstrip() + "\n"
 
 
-def build(data: dict, findings: list[dict], diff: str, own_pr: bool) -> dict:
+STATE_OF = {"APPROVE": "APPROVED", "REQUEST_CHANGES": "CHANGES_REQUESTED", "COMMENT": "COMMENTED"}
+
+
+def post_review(repo: str, number: str, payload: dict) -> dict:
+    """Post a review and stop unless GitHub recorded the event that was sent."""
+    result = json.loads(
+        gh("api", "-X", "POST", f"repos/{repo}/pulls/{number}/reviews", "--input", "-", stdin=json.dumps(payload))
+    )
+    if result.get("state") != STATE_OF[payload["event"]]:
+        sys.exit(
+            f"stop: {repo}#{number} review {result.get('id')} was sent as {payload['event']} "
+            f"but GitHub recorded {result.get('state')!r}: {result.get('html_url')}"
+        )
+    return result
+
+
+def gh_read(path: str, jq: str) -> dict:
+    """A read that may be refused (no access, branch not protected): the jq result, or {}."""
+    result = subprocess.run(["gh", "api", path, "--jq", jq], capture_output=True, encoding="utf-8")
+    try:
+        value = json.loads(result.stdout) if result.returncode == 0 else {}
+    except json.JSONDecodeError:
+        value = {}
+    return value if isinstance(value, dict) else {}
+
+
+def branch_rules(repo: str, base: str) -> dict[str, bool]:
+    """What the base branch's rulesets and classic protection do to approvals; a setting it cannot read counts as off."""
+    branch = quote(base, safe="")
+    rules = gh_read(
+        f"repos/{repo}/rules/branches/{branch}?per_page=100",
+        '[.[] | select(.type == "pull_request") | .parameters] | '
+        '{stale: (map(.dismiss_stale_reviews_on_push == true) | any), '
+        'last_push: (map(.require_last_push_approval == true) | any)}',
+    )
+    # Classic branch protection is not in the rules list. Reading it needs admin access; a refused read adds nothing.
+    classic = gh_read(
+        f"repos/{repo}/branches/{branch}/protection",
+        '(.required_pull_request_reviews // {}) | '
+        '{stale: (.dismiss_stale_reviews == true), last_push: (.require_last_push_approval == true)}',
+    )
+    return {key: rules.get(key) is True or classic.get(key) is True for key in ("stale", "last_push")}
+
+
+def approval_line(t: dict, repo: str, sha: str, has_findings: bool) -> str:
+    """The approval names the commit it covers, so a later push does not read as approved."""
+    link = f"[`{sha[:7]}`](https://github.com/{repo}/commit/{sha})"
+    return (t["p3_approve"] if has_findings else t["approve"]).format(sha=link)
+
+
+def build(
+    data: dict, findings: list[dict], diff: str, own_pr: bool,
+    stale_dismissed: bool = False, defer_approval: bool = False,
+) -> dict:
     t = TEXT[data["lang"]]
     anchorable = diff_right_lines(diff)
     inline, outside = [], []
@@ -172,8 +239,15 @@ def build(data: dict, findings: list[dict], diff: str, own_pr: bool) -> dict:
     if has_p0 and own_pr:
         event = "COMMENT"
         lines += ["", t["own_p0"]]
-    if event == "APPROVE" and findings:  # only P3 left; the no-findings body already has the marks
-        lines = [t["p3_approve"], "", *lines]
+    if event == "APPROVE" and findings and defer_approval:
+        # The P3s get fixed on the branch next; that push would lift an approval given now, so it waits for the fix report.
+        event = "COMMENT"
+        lines += ["", t["approve_later"]]
+    if event == "APPROVE":
+        line = approval_line(t, data["repo"], data["head_sha"], bool(findings))
+        lines = [line, "", *lines] if findings else [line]
+        if stale_dismissed:
+            lines += ["", t["stale_note"]]
 
     return {
         "commit_id": data["head_sha"],
@@ -195,7 +269,10 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("findings", help="findings JSON file")
     parser.add_argument("--dry-run", action="store_true", help="print the payload, post nothing")
-    parser.add_argument("--fix-report", action="store_true", help="post the fix outcomes as a PR comment")
+    parser.add_argument("--fix-report", action="store_true",
+                        help="post the fix outcomes: an approval on the fixed head when only P3 findings, else a PR comment")
+    parser.add_argument("--defer-approval", action="store_true",
+                        help="a P3-only review is posted as a comment; --fix-report approves after the fix")
     args = parser.parse_args()
     sys.stdout.reconfigure(encoding="utf-8")  # a piped stdout on Windows defaults to the locale code page
 
@@ -205,7 +282,7 @@ def main() -> None:
     repo, number = data["repo"], str(data["number"])
 
     pr = json.loads(
-        gh("pr", "view", number, "--repo", repo, "--json", "state,isDraft,headRefOid,author")
+        gh("pr", "view", number, "--repo", repo, "--json", "state,isDraft,headRefOid,baseRefName,author")
     )
     if pr["state"] != "OPEN":
         sys.exit(f"skip: {repo}#{number} is {pr['state']}")
@@ -220,15 +297,39 @@ def main() -> None:
                 "wait for the pushed fix to show on the PR, or re-check a concurrent push"
             )
         body = build_fix_report(data, findings)
+        # A P3-only PR is approved here, on the head the fix left, so the push cannot lift the approval.
+        viewer = gh("api", "user", "--jq", ".login").strip()
+        own_pr = pr["author"]["login"] == viewer
+        only_p3 = all(f["priority"] == "P3" for f in findings)
+        rules = branch_rules(repo, pr["baseRefName"]) if only_p3 and not own_pr else {"stale": False, "last_push": False}
+        # Step 5 approves when it ran without --defer-approval; a second approval of the same PR is not posted.
+        approved = only_p3 and not own_pr and bool(gh(
+            "api", "--paginate", f"repos/{repo}/pulls/{number}/reviews",
+            "--jq", f'.[] | select(.user.login == "{viewer}" and .state == "APPROVED") | .id',
+        ).strip())
+        t = TEXT[data["lang"]]
+        approve = only_p3 and not own_pr and not approved and not (rules["last_push"] and data.get("fix_sha"))
+        if approve:
+            body = approval_line(t, repo, expected, True) + "\n\n" + body
+            if rules["stale"]:
+                body += "\n" + t["stale_note"] + "\n"
+        elif only_p3 and not own_pr and not approved:  # I pushed, and this repository does not count the last pusher's approval
+            body += "\n" + t["last_push_note"] + "\n"
+        kind = "approval" if approve else "comment"
         if args.dry_run:
             print(body)
-            print(f"{repo}#{number}: fix report (dry run)", file=sys.stderr)
+            print(f"{repo}#{number}: fix report as {kind} (dry run)", file=sys.stderr)
             return
-        result = json.loads(
-            gh("api", "-X", "POST", f"repos/{repo}/issues/{number}/comments", "--input", "-",
-               stdin=json.dumps({"body": body}))
-        )
-        print(f"{repo}#{number}: fix report {result.get('html_url')}")
+        if approve:
+            result = post_review(repo, number, {"commit_id": expected, "event": "APPROVE", "body": body})
+            print(f"{repo}#{number}: fix report as approval, review {result.get('id')}")
+            print(f"{result.get('state')} {result.get('html_url')}")
+        else:
+            result = json.loads(
+                gh("api", "-X", "POST", f"repos/{repo}/issues/{number}/comments", "--input", "-",
+                   stdin=json.dumps({"body": body}))
+            )
+            print(f"{repo}#{number}: fix report as comment {result.get('html_url')}")
         return
     if pr["headRefOid"] != data["head_sha"]:
         sys.exit(
@@ -236,7 +337,10 @@ def main() -> None:
             f"(reviewed {data['head_sha'][:9]}); re-check the findings on the new head"
         )
     viewer = gh("api", "user", "--jq", ".login").strip()
-    payload = build(data, findings, gh("pr", "diff", number, "--repo", repo), pr["author"]["login"] == viewer)
+    payload = build(
+        data, findings, gh("pr", "diff", number, "--repo", repo), pr["author"]["login"] == viewer,
+        branch_rules(repo, pr["baseRefName"])["stale"], args.defer_approval,
+    )
 
     summary = (
         f"{repo}#{number}: {payload['event']}, {len(payload['comments'])} inline, "
@@ -246,11 +350,8 @@ def main() -> None:
         print(json.dumps(payload, ensure_ascii=False, indent=2))
         print(summary, "(dry run)", file=sys.stderr)
         return
-    result = json.loads(
-        gh("api", "-X", "POST", f"repos/{repo}/pulls/{number}/reviews", "--input", "-",
-           stdin=json.dumps(payload))
-    )
-    print(summary)
+    result = post_review(repo, number, payload)
+    print(f"{summary}, review {result.get('id')}")
     print(f"{result.get('state')} {result.get('html_url')}")
 
 

@@ -34,7 +34,7 @@ PR 마다 리뷰 하나를 게시합니다. 댓글은 저장소 언어(한국어
 3. **우선순위** — 부풀리거나 낮추지 않고 P0–P3 지정
 4. **STE 문체** — 한 문장에 한 사실, 정한 언어로(한국어 합니다체 또는 쉬운 영어), 방법 언급 없음
 5. **게시** — findings JSON → `post_review.py --dry-run` → 게시
-6. **수정 (`--fix` 만)** — 격리 워크트리, 검사, 커밋 하나, 푸시, 결과 댓글
+6. **수정 (`--fix` 만)** — 격리 워크트리, 검사, 커밋 하나, 푸시, 결과 게시물
 7. **최종 보고** — 실행마다 표 하나
 
 ---
@@ -45,10 +45,14 @@ PR 마다 리뷰 하나를 게시합니다. 댓글은 저장소 언어(한국어
 영어: 🚨 P0 Blocking · ⚠️ P1 Fix before merge · 💡 P2 Fix recommended · 💬 P3 Optional.
 
 아래 예시는 한국어입니다. 영어 저장소는 같은 모양에 영어 레이블과 머리글
-(`| Priority | Finding | Location |`)을 씁니다. 지적이 없으면 본문은
+(`| Priority | Finding | Location |`)을 씁니다. 지적이 없고 승인하지 않는 리뷰의 본문은
 `🎉🎉🎉 지적할 항목이 없습니다. 🎉🎉🎉`(영어: `🎉🎉🎉 No findings. 🎉🎉🎉`) 한 줄입니다.
-P3 만 남아 승인할 때는 건수 표 위에 `🎉🎉🎉 P3 제안만 있어 승인합니다. 🎉🎉🎉`(영어:
-`🎉🎉🎉 Approved. Only P3 suggestions remain. 🎉🎉🎉`) 한 줄을 둡니다.
+승인할 때는 리뷰한 커밋을 링크 걸린 짧은 SHA로 밝힙니다. 지적이 없으면
+`🎉🎉🎉 <sha> 기준으로 지적할 항목이 없어 승인합니다. 🎉🎉🎉`(영어:
+`🎉🎉🎉 Approved at <sha>. No findings. 🎉🎉🎉`) 한 줄이고, P3 만 남았으면 건수 표 위에
+`🎉🎉🎉 <sha> 기준으로 P3 제안만 있어 승인합니다. 🎉🎉🎉`(영어:
+`🎉🎉🎉 Approved at <sha>. Only P3 suggestions remain. 🎉🎉🎉`) 한 줄을 둡니다. base
+브랜치의 ruleset이 push 때 지난 승인을 풀면, 승인 끝에 새 push가 승인을 푼다는 안내를 붙입니다.
 
 리뷰 본문은 건수 표 다음에 지적마다 한 행을 둡니다. diff 안 줄의 지적은
 인라인 댓글(`⚠️ **P1** …`)로 달고, diff 밖 지적은 표 아래에 상세를 붙입니다.
@@ -65,8 +69,11 @@ P3 만 남아 승인할 때는 건수 표 위에 `🎉🎉🎉 P3 제안만 있�
 | 💬 P3 | `formatRange` 가 `toRangeLabel` 과 같은 일을 합니다 | [`Header.tsx:21`](…#L21) |
 ```
 
-`--fix` 결과 댓글도 같은 모양입니다. 결과별 건수 표, 수정 커밋 링크, 지적마다
-한 행 순서입니다.
+`--fix` 결과 게시물도 같은 모양입니다. 결과별 건수 표, 수정 커밋 링크, 지적마다
+한 행 순서입니다. `--fix` 를 쓰면 P3 만 있는 PR은 리뷰에서 승인하지 않습니다. 수정
+push가 그 승인을 풀기 때문입니다. 리뷰는 댓글로 남기고, 결과 게시물이 수정된 head의
+승인이 됩니다. 마지막으로 push한 사람의 승인을 인정하지 않는 저장소에서는, 결과
+게시물이 다른 리뷰어의 승인이 필요하다고 알리는 댓글이 됩니다.
 
 ```markdown
 | 결과 | 건수 |
@@ -100,6 +107,6 @@ P3 만 남아 승인할 때는 건수 표 위에 `🎉🎉🎉 P3 제안만 있�
 ## 구조
 
 - [SKILL.md](SKILL.md) — 메인 스킬
-- [scripts/post_review.py](scripts/post_review.py) — 리뷰 또는 수정 결과 댓글을 만들고 게시
+- [scripts/post_review.py](scripts/post_review.py) — 리뷰 또는 수정 결과 게시물을 만들고 게시
 - [scripts/detect_lang.py](scripts/detect_lang.py) — 최근 PR·리뷰 댓글로 댓글 언어(`ko` 또는 `en`) 감지
 - [references/finder-brief.md](references/finder-brief.md) — 큰 PR·여러 PR 용 서브 에이전트 브리프
