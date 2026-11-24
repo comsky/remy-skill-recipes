@@ -72,8 +72,12 @@ carries its detail below the table.
 | 💬 P3 | `formatRange` 가 `toRangeLabel` 과 같은 일을 합니다 | [`Header.tsx:21`](…#L21) |
 ```
 
-The `--fix` outcome comment has the same shape: a count table per outcome, the
-fix commit link, then one row per finding.
+The `--fix` outcome post has the same shape: a count table per outcome, the
+fix commit link, then one row per finding. With `--fix`, a P3-only PR is not
+approved in the review, because the fix push would lift that approval. The
+review is a comment, and the outcome post is the approval of the fixed head. If
+the repository does not count the last pusher's approval, the outcome post is a
+comment that says another reviewer must approve.
 
 ```markdown
 | 결과 | 건수 |
