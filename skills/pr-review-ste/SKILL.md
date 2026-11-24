@@ -95,7 +95,7 @@ merges, thread resolves, or force pushes.
 
 1. Per PR, one GitHub review:
    - Inline comments on lines inside the diff
-   - A body that starts with a count table (one `| 💡 P2 수정 권장 | 4 |` or `| 💡 P2 Fix recommended | 4 |` row per priority that has findings), then one table row per finding (priority, summary, PR-head line link); findings outside the diff carry their detail below the table, under their priority and link. With no findings, the body is one line (`🎉🎉🎉 지적할 항목이 없습니다. 🎉🎉🎉` or `🎉🎉🎉 No findings. 🎉🎉🎉`). An approval with only P3 findings starts with one line above the count table (`🎉🎉🎉 P3 제안만 있어 승인합니다. 🎉🎉🎉` or `🎉🎉🎉 Approved. Only P3 suggestions remain. 🎉🎉🎉`)
+   - A body that starts with a count table (one `| 💡 P2 수정 권장 | 4 |` or `| 💡 P2 Fix recommended | 4 |` row per priority that has findings), then one table row per finding (priority, summary, PR-head line link); findings outside the diff carry their detail below the table, under their priority and link. With no findings, the body is one line (`🎉🎉🎉 지적할 항목이 없습니다. 🎉🎉🎉` or `🎉🎉🎉 No findings. 🎉🎉🎉`). An approval names the reviewed head commit as a short SHA linked to the commit, so a later push does not read as approved: with no findings, its one line is `🎉🎉🎉 <sha> 기준으로 지적할 항목이 없어 승인합니다. 🎉🎉🎉` or `🎉🎉🎉 Approved at <sha>. No findings. 🎉🎉🎉`; with only P3 findings, one line above the count table is `🎉🎉🎉 <sha> 기준으로 P3 제안만 있어 승인합니다. 🎉🎉🎉` or `🎉🎉🎉 Approved at <sha>. Only P3 suggestions remain. 🎉🎉🎉`. When a ruleset on the base branch dismisses stale approvals on push, the approval ends with `> 이 저장소는 새 커밋이 push되면 승인이 자동으로 풀립니다. 이후 커밋은 다시 리뷰해야 합니다.` or `> This repository dismisses approvals when new commits are pushed. Later commits need a new review.`
    - Event: `REQUEST_CHANGES` (any P0) · `APPROVE` (only P3, or none) · `COMMENT` (otherwise; also for the user's own PR)
 2. Per PR with `--fix`: one fix commit on the PR branch and one PR comment that starts with a count table (one `| ✅ 수정 | 2 |` row per outcome that occurs) and then has one table row per finding with its outcome (`✅ 수정` · `⏭️ 건너뜀` · `➖ 변경 불필요`, or `✅ Fixed` · `⏭️ Skipped` · `➖ No change needed`) with the fix commit link.
 3. To the user, one table: PR link (review URL), applied level (and whether ADR raised it to `xhigh`), comment language and its source (argument, rule file, or detection), state, counts per priority, one-line key point. Skipped PRs with the reason. One or two lines on unposted candidates where the call was close. With `--fix`: fix commit, counts per outcome, checks run and their result, PR author when the PR is not the user's, and one line per skipped finding.
@@ -333,7 +333,9 @@ The script re-checks PR state and head SHA (stops if merged or the head moved),
 reads the diff to decide which lines can take inline comments, builds the body,
 derives the event (P0 → `REQUEST_CHANGES`; only P3 or none → `APPROVE`;
 otherwise `COMMENT`; on the user's own PR both become `COMMENT`, and a P0 is
-noted in the body), and posts with `gh api`.
+noted in the body), names the reviewed head in an approval and adds the
+stale-dismissal note when the base branch's rulesets say so (a ruleset it
+cannot read adds no note), and posts with `gh api`.
 
 ### Step 6 — Fix (`--fix` only)
 

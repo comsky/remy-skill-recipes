@@ -36,7 +36,9 @@ TEXT = {
         "outcome_head": "| 결과 | 우선순위 | 지적 | 위치 | 사유 |",
         "fix_commit": "수정 커밋",
         "no_findings": "🎉🎉🎉 지적할 항목이 없습니다. 🎉🎉🎉",
-        "p3_approve": "🎉🎉🎉 P3 제안만 있어 승인합니다. 🎉🎉🎉",
+        "approve": "🎉🎉🎉 {sha} 기준으로 지적할 항목이 없어 승인합니다. 🎉🎉🎉",
+        "p3_approve": "🎉🎉🎉 {sha} 기준으로 P3 제안만 있어 승인합니다. 🎉🎉🎉",
+        "stale_note": "> 이 저장소는 새 커밋이 push되면 승인이 자동으로 풀립니다. 이후 커밋은 다시 리뷰해야 합니다.",
         "own_p0": "> P0 가 있으나 본인 PR 이라 변경 요청 대신 댓글로 남깁니다.",
     },
     "en": {
@@ -48,7 +50,9 @@ TEXT = {
         "outcome_head": "| Outcome | Priority | Finding | Location | Reason |",
         "fix_commit": "Fix commit",
         "no_findings": "🎉🎉🎉 No findings. 🎉🎉🎉",
-        "p3_approve": "🎉🎉🎉 Approved. Only P3 suggestions remain. 🎉🎉🎉",
+        "approve": "🎉🎉🎉 Approved at {sha}. No findings. 🎉🎉🎉",
+        "p3_approve": "🎉🎉🎉 Approved at {sha}. Only P3 suggestions remain. 🎉🎉🎉",
+        "stale_note": "> This repository dismisses approvals when new commits are pushed. Later commits need a new review.",
         "own_p0": "> This PR has a P0. It is your own PR, so this review is a comment, not a change request.",
     },
 }
@@ -142,7 +146,23 @@ def build_fix_report(data: dict, findings: list[dict]) -> str:
     return "\n".join(lines).rstrip() + "\n"
 
 
-def build(data: dict, findings: list[dict], diff: str, own_pr: bool) -> dict:
+def dismisses_stale(repo: str, base: str) -> bool:
+    """Whether a ruleset on the base branch dismisses approvals on push; False when it cannot be read."""
+    result = subprocess.run(
+        ["gh", "api", f"repos/{repo}/rules/branches/{quote(base, safe='')}", "--jq",
+         '[.[] | select(.type == "pull_request") | .parameters.dismiss_stale_reviews_on_push == true] | any'],
+        capture_output=True, encoding="utf-8",
+    )
+    return result.returncode == 0 and result.stdout.strip() == "true"
+
+
+def approval_line(t: dict, repo: str, sha: str, has_findings: bool) -> str:
+    """The approval names the commit it covers, so a later push does not read as approved."""
+    link = f"[`{sha[:7]}`](https://github.com/{repo}/commit/{sha})"
+    return (t["p3_approve"] if has_findings else t["approve"]).format(sha=link)
+
+
+def build(data: dict, findings: list[dict], diff: str, own_pr: bool, stale_dismissed: bool = False) -> dict:
     t = TEXT[data["lang"]]
     anchorable = diff_right_lines(diff)
     inline, outside = [], []
@@ -172,8 +192,11 @@ def build(data: dict, findings: list[dict], diff: str, own_pr: bool) -> dict:
     if has_p0 and own_pr:
         event = "COMMENT"
         lines += ["", t["own_p0"]]
-    if event == "APPROVE" and findings:  # only P3 left; the no-findings body already has the marks
-        lines = [t["p3_approve"], "", *lines]
+    if event == "APPROVE":
+        line = approval_line(t, data["repo"], data["head_sha"], bool(findings))
+        lines = [line, "", *lines] if findings else [line]
+        if stale_dismissed:
+            lines += ["", t["stale_note"]]
 
     return {
         "commit_id": data["head_sha"],
@@ -205,7 +228,7 @@ def main() -> None:
     repo, number = data["repo"], str(data["number"])
 
     pr = json.loads(
-        gh("pr", "view", number, "--repo", repo, "--json", "state,isDraft,headRefOid,author")
+        gh("pr", "view", number, "--repo", repo, "--json", "state,isDraft,headRefOid,baseRefName,author")
     )
     if pr["state"] != "OPEN":
         sys.exit(f"skip: {repo}#{number} is {pr['state']}")
@@ -236,7 +259,10 @@ def main() -> None:
             f"(reviewed {data['head_sha'][:9]}); re-check the findings on the new head"
         )
     viewer = gh("api", "user", "--jq", ".login").strip()
-    payload = build(data, findings, gh("pr", "diff", number, "--repo", repo), pr["author"]["login"] == viewer)
+    payload = build(
+        data, findings, gh("pr", "diff", number, "--repo", repo), pr["author"]["login"] == viewer,
+        dismisses_stale(repo, pr["baseRefName"]),
+    )
 
     summary = (
         f"{repo}#{number}: {payload['event']}, {len(payload['comments'])} inline, "

@@ -47,9 +47,14 @@ In English: 🚨 P0 Blocking · ⚠️ P1 Fix before merge · 💡 P2 Fix recomm
 
 The examples below are Korean. An English repository gets the same layout with
 English labels and headers (`| Priority | Finding | Location |`). With no
-findings, the body is one line: `🎉🎉🎉 No findings. 🎉🎉🎉`. An approval with only
-P3 findings starts with `🎉🎉🎉 Approved. Only P3 suggestions remain. 🎉🎉🎉`
-(Korean: `🎉🎉🎉 P3 제안만 있어 승인합니다. 🎉🎉🎉`) above the count table.
+findings, the body is one line: `🎉🎉🎉 No findings. 🎉🎉🎉`. An approval names the
+reviewed commit as a linked short SHA: with no findings it is
+`🎉🎉🎉 Approved at <sha>. No findings. 🎉🎉🎉` (Korean:
+`🎉🎉🎉 <sha> 기준으로 지적할 항목이 없어 승인합니다. 🎉🎉🎉`), and with only P3 findings it
+starts with `🎉🎉🎉 Approved at <sha>. Only P3 suggestions remain. 🎉🎉🎉` (Korean:
+`🎉🎉🎉 <sha> 기준으로 P3 제안만 있어 승인합니다. 🎉🎉🎉`) above the count table. If the
+base branch's rulesets dismiss stale approvals on push, the approval ends with a
+note that a new push lifts it.
 
 The review body is a count table, then one row per finding. A finding on a
 diff line gets an inline comment (`⚠️ **P1** …`); a finding outside the diff
